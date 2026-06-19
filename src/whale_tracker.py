@@ -1,67 +1,67 @@
 """
 whale_tracker.py
-GEX Oracle — Whale On-Chain Behavior Tracking Engine v2.1
-Multi-API auto-fallback: mempool.space / blockstream.info / blockchain.info
-Address list: verified Top whale addresses (exchange cold wallets + individual whales)
+GEX Oracle — Whale On-Chain Behavior Tracking Engine v2.2
+Robust multi-API client with per-request fallback and retry logic.
+Primary: mempool.space | Fallback: blockstream.info | Last resort: blockchain.info
 """
 
-import requests, json, time, sqlite3, os
+import requests, json, time, sqlite3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 DATA_DIR = Path("data")
 DB_PATH  = DATA_DIR / "whale.db"
 
-WHALE_MOVE_BTC      = 100.0   # Single move >= 100 BTC = significant event
-DORMANCY_DAYS       = 30      # Address inactive > 30 days then moves = strong signal
-SYNC_WINDOW_MINUTES = 60      # Synchronized behavior time window (minutes)
-MIN_SYNC_COUNT      = 5       # Min number of whales moving in same window to trigger
+WHALE_MOVE_BTC      = 100.0
+DORMANCY_DAYS       = 30
+SYNC_WINDOW_MINUTES = 60
+MIN_SYNC_COUNT      = 5
 
 # Known exchange cold wallet labels
 EXCHANGE_LABELS = {
-    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo":             "Binance",
-    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5":             "Binance",
-    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ":             "Coinbase",
-    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64":             "Coinbase",
-    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt":     "Kraken",
-    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH":             "Kraken",
-    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh":             "Bitfinex",
-    "3JZq4atEAaEy18limMbzNhcgKPDfd8m1QL":             "Bitfinex",
-    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR":             "Bitfinex",
-    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo":             "Bitfinex",
-    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA":             "OKX",
-    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX":             "OKX",
-    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g":             "Huobi",
-    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6":             "Huobi",
-    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf":             "Gemini",
-    "1HQ3Go3ggs8pFnXuHVHRytPCq5fGG8Hbhx":             "Satoshi_Dormant",
-    "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF":             "Satoshi_Dormant",
-    "12tkqA9xSoowkzoERHMWNKsTey55YEBqkv":             "Satoshi_Dormant",
+    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo":         "Binance",
+    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5":         "Binance",
+    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ":         "Coinbase",
+    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64":         "Coinbase",
+    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt": "Kraken",
+    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH":         "Kraken",
+    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh":         "Bitfinex",
+    "3JZq4atEAaEy18limMbzNhcgKPDfd8m1QL":         "Bitfinex",
+    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR":         "Bitfinex",
+    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo":         "Bitfinex",
+    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA":         "OKX",
+    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX":         "OKX",
+    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g":         "Huobi",
+    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6":         "Huobi",
+    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf":         "Gemini",
+    "1HQ3Go3ggs8pFnXuHVHRytPCq5fGG8Hbhx":         "Satoshi_Dormant",
+    "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF":         "Satoshi_Dormant",
+    "12tkqA9xSoowkzoERHMWNKsTey55YEBqkv":         "Satoshi_Dormant",
 }
 
-# Verified whale addresses (all confirmed real addresses)
+# Verified whale addresses (all confirmed on-chain)
 WHALE_ADDRESSES = [
-    # Exchange cold wallets
-    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",
-    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5",
-    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ",
-    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64",
-    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt",
-    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH",
-    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh",
-    "3JZq4atEAaEy18limMbzNhcgKPDfd8m1QL",
-    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR",
-    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo",
-    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA",
-    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX",
-    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g",
-    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",
-    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf",
-    # Satoshi-era dormant wallets
+    # --- Exchange cold wallets ---
+    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",          # Binance #1
+    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5",          # Binance #2
+    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ",          # Coinbase #1
+    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64",          # Coinbase #2
+    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt",  # Kraken
+    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH",          # Kraken #2
+    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh",          # Bitfinex #1
+    "3JZq4atEAaEy18limMbzNhcgKPDfd8m1QL",          # Bitfinex #2
+    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR",          # Bitfinex #3
+    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo",          # Bitfinex #4
+    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA",          # OKX #1
+    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX",          # OKX #2
+    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g",          # Huobi #1
+    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",          # Huobi #2
+    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf",          # Gemini
+    # --- Satoshi-era dormant wallets ---
     "1HQ3Go3ggs8pFnXuHVHRytPCq5fGG8Hbhx",
     "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF",
     "12tkqA9xSoowkzoERHMWNKsTey55YEBqkv",
-    # Individual whales (verified via BitInfoCharts Top 100)
+    # --- Individual whales (verified via BitInfoCharts Top 100) ---
     "1LdRcdxfbSnmCYYNdeYpUnztiYzVfBEQeC",
     "15E7jFDW3DVBi1YWFdnEGBCCFKGbVstj8c",
     "1GR9qNz7zgtaW5HwwVpEJWMnGWhsbsieCG",
@@ -107,151 +107,165 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS address_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ts TEXT NOT NULL,
-        rank INTEGER NOT NULL,
-        address TEXT NOT NULL,
-        label TEXT,
-        balance_btc REAL NOT NULL,
-        tx_count INTEGER NOT NULL,
-        first_seen TEXT,
-        last_seen TEXT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, rank INTEGER NOT NULL,
+        address TEXT NOT NULL, label TEXT, balance_btc REAL NOT NULL,
+        tx_count INTEGER NOT NULL, first_seen TEXT, last_seen TEXT,
         balance_delta REAL DEFAULT 0)""")
     c.execute("""CREATE TABLE IF NOT EXISTS transactions (
-        txid TEXT NOT NULL,
-        address TEXT NOT NULL,
-        ts_block TEXT,
-        ts_fetched TEXT NOT NULL,
-        direction TEXT NOT NULL,
-        value_btc REAL NOT NULL,
-        block_height INTEGER,
-        fee_sat INTEGER,
-        input_count INTEGER,
-        output_count INTEGER,
-        is_coinbase INTEGER DEFAULT 0,
-        counterparty TEXT,
+        txid TEXT NOT NULL, address TEXT NOT NULL, ts_block TEXT,
+        ts_fetched TEXT NOT NULL, direction TEXT NOT NULL, value_btc REAL NOT NULL,
+        block_height INTEGER, fee_sat INTEGER, input_count INTEGER,
+        output_count INTEGER, is_coinbase INTEGER DEFAULT 0, counterparty TEXT,
         PRIMARY KEY (txid, address))""")
     c.execute("""CREATE TABLE IF NOT EXISTS behavior_signals (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ts TEXT NOT NULL,
-        signal_type TEXT NOT NULL,
-        strength REAL NOT NULL,
-        address_count INTEGER,
-        btc_volume REAL,
-        direction TEXT,
-        description TEXT,
-        raw_json TEXT)""")
+        id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL,
+        signal_type TEXT NOT NULL, strength REAL NOT NULL,
+        address_count INTEGER, btc_volume REAL, direction TEXT,
+        description TEXT, raw_json TEXT)""")
     c.execute("""CREATE TABLE IF NOT EXISTS hourly_summary (
-        ts TEXT PRIMARY KEY,
-        total_whale_volume REAL,
-        exchange_inflow REAL,
-        exchange_outflow REAL,
-        dormant_wake_count INTEGER,
-        sync_event_count INTEGER,
-        net_exchange_flow REAL,
-        signal_score REAL,
-        top_signal TEXT)""")
+        ts TEXT PRIMARY KEY, total_whale_volume REAL, exchange_inflow REAL,
+        exchange_outflow REAL, dormant_wake_count INTEGER, sync_event_count INTEGER,
+        net_exchange_flow REAL, signal_score REAL, top_signal TEXT)""")
     conn.commit()
     conn.close()
     print("[DB] Initialized")
 
-# ── Multi-API Auto-Fallback Client ────────────────────────────────────────────
+# ── Robust Multi-API Client ───────────────────────────────────────────────────
 class ChainClient:
     """
-    Auto-detects the first available API, tries in order:
-      1. mempool.space    (esplora format)
-      2. blockstream.info (esplora format, fallback)
-      3. blockchain.info  (different format, last resort)
+    Per-request fallback chain with retry logic.
+    Each individual request tries all available APIs before giving up.
+
+    Priority order:
+      1. mempool.space    (esplora format, primary)
+      2. blockstream.info (esplora format, fallback #1)
+      3. blockchain.info  (different format, fallback #2)
+
+    Key improvement over v2.1:
+      - No longer bails out globally if one host fails probe
+      - Each address request independently tries all hosts
+      - Exponential backoff on rate-limit (HTTP 429)
+      - Success/failure stats printed at end of batch
     """
+
     ESPLORA_HOSTS = [
         "https://mempool.space",
         "https://blockstream.info",
     ]
+    MAX_RETRIES  = 3
+    RETRY_DELAYS = [1, 3, 7]   # seconds between retries per host
 
     def __init__(self):
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "GEX-Oracle-WhaleTracker/2.1"})
-        self.working_host = None
-        self._probe()
+        self.session.headers.update({"User-Agent": "GEX-Oracle-WhaleTracker/2.2"})
+        self.stats = {"success": 0, "failed": 0, "fallback_used": 0}
 
-    def _probe(self):
-        """Probe which esplora host is reachable."""
-        TEST = "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo"
+    def _get_esplora(self, path: str) -> dict | list | None:
+        """
+        Try each esplora host in order with retries.
+        Returns parsed JSON on first success, None if all fail.
+        """
         for host in self.ESPLORA_HOSTS:
+            for attempt, delay in enumerate(self.RETRY_DELAYS, 1):
+                try:
+                    r = self.session.get(f"{host}{path}", timeout=12)
+                    if r.status_code == 200:
+                        return r.json()
+                    elif r.status_code == 429:
+                        # Rate limited — wait and retry same host
+                        wait = delay * 2
+                        print(f"  [rate-limit] {host} → sleeping {wait}s (attempt {attempt})")
+                        time.sleep(wait)
+                        continue
+                    elif r.status_code in (404, 400):
+                        # Invalid address — skip this host entirely
+                        break
+                    else:
+                        time.sleep(delay)
+                except requests.exceptions.Timeout:
+                    print(f"  [timeout] {host}{path[:40]} (attempt {attempt})")
+                    time.sleep(delay)
+                except Exception as e:
+                    time.sleep(delay)
+            # Small pause between hosts to avoid thundering herd
+            time.sleep(0.3)
+        return None
+
+    def _get_blockchain_info(self, address: str, limit: int = 1) -> dict | None:
+        """blockchain.info fallback for address info + txs."""
+        for attempt, delay in enumerate(self.RETRY_DELAYS, 1):
             try:
-                r = self.session.get(f"{host}/api/address/{TEST}", timeout=8)
+                r = self.session.get(
+                    f"https://blockchain.info/rawaddr/{address}",
+                    params={"limit": limit}, timeout=12)
                 if r.status_code == 200:
-                    self.working_host = host
-                    print(f"[API] Using: {host}")
-                    return
+                    return r.json()
+                elif r.status_code == 429:
+                    time.sleep(delay * 2)
+                    continue
                 else:
-                    print(f"[API] {host} → HTTP {r.status_code}")
-            except Exception as e:
-                print(f"[API] {host} → {str(e)[:50]}")
-        print("[API] ⚠️  All esplora hosts unreachable — falling back to blockchain.info")
+                    time.sleep(delay)
+            except Exception:
+                time.sleep(delay)
+        return None
 
     def get_address_info(self, address: str) -> dict:
-        """Returns balance and total TX count for an address."""
-        if self.working_host:
-            try:
-                r = self.session.get(f"{self.working_host}/api/address/{address}", timeout=10)
-                if r.status_code == 200:
-                    d  = r.json()
-                    cs = d.get("chain_stats", {})
-                    return {
-                        "balance_btc": (cs.get("funded_txo_sum", 0) - cs.get("spent_txo_sum", 0)) / 1e8,
-                        "tx_count":    cs.get("tx_count", 0),
-                        "source":      self.working_host,
-                    }
-            except Exception as e:
-                print(f"  [warn] {address[:16]}: {str(e)[:40]}")
+        """Returns balance (BTC) and total TX count. Tries all APIs."""
+        # Try esplora hosts first
+        data = self._get_esplora(f"/api/address/{address}")
+        if data:
+            cs = data.get("chain_stats", {})
+            self.stats["success"] += 1
+            return {
+                "balance_btc": (cs.get("funded_txo_sum", 0) - cs.get("spent_txo_sum", 0)) / 1e8,
+                "tx_count":    cs.get("tx_count", 0),
+                "source":      "esplora",
+            }
 
         # blockchain.info fallback
-        try:
-            r = self.session.get(
-                f"https://blockchain.info/rawaddr/{address}",
-                params={"limit": 1}, timeout=10)
-            if r.status_code == 200:
-                d = r.json()
-                return {
-                    "balance_btc": d.get("final_balance", 0) / 1e8,
-                    "tx_count":    d.get("n_tx", 0),
-                    "source":      "blockchain.info",
-                }
-        except Exception as e:
-            print(f"  [warn] blockchain.info {address[:16]}: {str(e)[:40]}")
+        data = self._get_blockchain_info(address, limit=1)
+        if data:
+            self.stats["fallback_used"] += 1
+            return {
+                "balance_btc": data.get("final_balance", 0) / 1e8,
+                "tx_count":    data.get("n_tx", 0),
+                "source":      "blockchain.info",
+            }
+
+        self.stats["failed"] += 1
         return {}
 
     def get_address_txs(self, address: str, limit: int = 50) -> list:
-        """Returns the most recent N transactions with full granularity."""
-        if self.working_host:
-            try:
-                r = self.session.get(
-                    f"{self.working_host}/api/address/{address}/txs", timeout=15)
-                if r.status_code == 200:
-                    return r.json()[:limit]
-            except Exception as e:
-                print(f"  [warn] txs {address[:16]}: {str(e)[:40]}")
+        """
+        Returns the most recent N transactions with full per-tx granularity:
+          - txid, block_time, block_height
+          - direction (in/out relative to this address)
+          - net value_btc for this address
+          - fee_sat, input_count, output_count
+          - counterparty (known exchange label if present)
+        """
+        # Try esplora hosts
+        data = self._get_esplora(f"/api/address/{address}/txs")
+        if data:
+            return data[:limit]
 
-        # blockchain.info fallback
-        try:
-            r = self.session.get(
-                f"https://blockchain.info/rawaddr/{address}",
-                params={"limit": limit}, timeout=15)
-            if r.status_code == 200:
-                return self._convert_blockchain_txs(r.json().get("txs", []), address)
-        except Exception as e:
-            print(f"  [warn] blockchain.info txs {address[:16]}: {str(e)[:40]}")
+        # blockchain.info fallback — convert to esplora format
+        data = self._get_blockchain_info(address, limit=limit)
+        if data:
+            return self._convert_blockchain_txs(data.get("txs", []))
+
         return []
 
-    def _convert_blockchain_txs(self, raw_txs: list, address: str) -> list:
-        """Convert blockchain.info format → esplora format."""
+    def _convert_blockchain_txs(self, raw_txs: list) -> list:
+        """Normalize blockchain.info tx format to esplora format."""
         result = []
         for tx in raw_txs:
-            vin  = [{"prevout": {"scriptpubkey_address": inp.get("prev_out", {}).get("addr", ""),
-                                  "value": inp.get("prev_out", {}).get("value", 0)}}
-                    for inp in tx.get("inputs", [])]
-            vout = [{"scriptpubkey_address": out.get("addr", ""), "value": out.get("value", 0)}
+            vin  = [{"prevout": {
+                        "scriptpubkey_address": inp.get("prev_out", {}).get("addr", ""),
+                        "value":                inp.get("prev_out", {}).get("value", 0),
+                    }} for inp in tx.get("inputs", [])]
+            vout = [{"scriptpubkey_address": out.get("addr", ""),
+                     "value":                out.get("value", 0)}
                     for out in tx.get("out", [])]
             result.append({
                 "txid": tx.get("hash", ""),
@@ -266,17 +280,14 @@ class ChainClient:
             })
         return result
 
+    def print_stats(self):
+        total = self.stats["success"] + self.stats["failed"]
+        print(f"  [API stats] success={self.stats['success']}/{total} | "
+              f"fallback={self.stats['fallback_used']} | "
+              f"failed={self.stats['failed']}")
+
 # ── Behavior Analysis Engine ──────────────────────────────────────────────────
 class BehaviorAnalyzer:
-    """
-    Derives whale behavior signals from raw transaction data.
-
-    Signal types:
-      SYNC_MOVE        - Multiple whales moving within the same time window
-      EXCHANGE_INFLOW  - Net BTC flowing into exchanges (bearish)
-      EXCHANGE_OUTFLOW - Net BTC flowing out of exchanges (bullish)
-      DORMANT_WAKE     - Long-inactive address suddenly moves (rare, high-strength)
-    """
     def __init__(self):
         self.conn = sqlite3.connect(DB_PATH)
 
@@ -284,7 +295,7 @@ class BehaviorAnalyzer:
         self.conn.close()
 
     def detect_sync_moves(self) -> list:
-        c = self.conn.cursor()
+        c      = self.conn.cursor()
         cutoff = (datetime.now(timezone.utc) - timedelta(minutes=SYNC_WINDOW_MINUTES)).isoformat()
         c.execute("""
             SELECT strftime('%Y-%m-%dT%H:00:00Z', ts_block) AS hb,
@@ -296,22 +307,19 @@ class BehaviorAnalyzer:
             GROUP BY hb HAVING n >= ?
             ORDER BY ts_block DESC
         """, (cutoff, WHALE_MOVE_BTC, MIN_SYNC_COUNT))
-        signals = []
-        for hb, n, vol, addrs in c.fetchall():
-            signals.append({
-                "signal_type":   "SYNC_MOVE",
-                "ts":            hb,
-                "strength":      min(1.0, n / 20),
-                "address_count": n,
-                "btc_volume":    vol or 0,
-                "direction":     "neutral",
-                "description":   f"{n} whales moved in the same hour — total {(vol or 0):.1f} BTC",
-                "addresses":     (addrs or "").split(","),
-            })
-        return signals
+        return [{
+            "signal_type":   "SYNC_MOVE",
+            "ts":            hb,
+            "strength":      min(1.0, n / 20),
+            "address_count": n,
+            "btc_volume":    vol or 0,
+            "direction":     "neutral",
+            "description":   f"{n} whales moved in the same hour — total {(vol or 0):.1f} BTC",
+            "addresses":     (addrs or "").split(","),
+        } for hb, n, vol, addrs in c.fetchall()]
 
     def detect_exchange_flows(self) -> dict:
-        c = self.conn.cursor()
+        c      = self.conn.cursor()
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
         c.execute("""
             SELECT direction, counterparty, SUM(value_btc)
@@ -339,45 +347,36 @@ class BehaviorAnalyzer:
         }
 
     def detect_dormant_wake(self) -> list:
-        c = self.conn.cursor()
+        c         = self.conn.cursor()
         threshold = (datetime.now(timezone.utc) - timedelta(days=DORMANCY_DAYS)).isoformat()
         c.execute("""
             SELECT a1.address, a1.last_seen, a2.last_seen, a2.balance_btc
             FROM address_snapshots a1
             JOIN address_snapshots a2 ON a1.address = a2.address
             WHERE a1.ts = (SELECT MAX(ts) FROM address_snapshots WHERE ts < a2.ts)
-              AND a1.last_seen <= ?
-              AND a2.last_seen > ?
+              AND a1.last_seen <= ? AND a2.last_seen > ?
         """, (threshold, threshold))
-        signals = []
-        for address, prev_ts, curr_ts, bal in c.fetchall():
-            signals.append({
-                "signal_type": "DORMANT_WAKE",
-                "address":     address,
-                "label":       EXCHANGE_LABELS.get(address, "unknown"),
-                "balance_btc": bal,
-                "strength":    min(1.0, bal / 10000),
-                "direction":   "bear",
-                "description": f"Address dormant {DORMANCY_DAYS}+ days just moved — balance {bal:.1f} BTC",
-            })
-        return signals
+        return [{
+            "signal_type": "DORMANT_WAKE",
+            "address":     address,
+            "label":       EXCHANGE_LABELS.get(address, "unknown"),
+            "balance_btc": bal,
+            "strength":    min(1.0, bal / 10000),
+            "direction":   "bear",
+            "description": f"Address dormant {DORMANCY_DAYS}+ days just moved — balance {bal:.1f} BTC",
+        } for address, _, _, bal in c.fetchall()]
 
     def compute_signal_score(self, ef: dict, se: list, dw: list) -> float:
-        """
-        Composite score: -1.0 (extreme bearish) to +1.0 (extreme bullish)
-        Weights: exchange flow 40%, sync moves 30%, dormant wake 20%
-        """
-        flow_score    = max(-1.0, min(1.0, ef.get("net", 0) / 1000))
-        sync_score    = 0.2 * min(1.0, len(se) / 10)
-        dormant_score = -0.3 * min(1.0, len(dw) / 5)
-        score = 0.40 * flow_score + 0.30 * sync_score + 0.20 * dormant_score
+        score = (0.40 * max(-1.0, min(1.0, ef.get("net", 0) / 1000)) +
+                 0.30 * (0.2 * min(1.0, len(se) / 10)) +
+                 0.20 * (-0.3 * min(1.0, len(dw) / 5)))
         return round(max(-1.0, min(1.0, score)), 3)
 
 # ── Main Hourly Batch ─────────────────────────────────────────────────────────
 def run_hourly_batch():
     ts_now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     print(f"\n{'='*60}")
-    print(f"[START] GEX Oracle Whale Tracker v2.1 | {ts_now}")
+    print(f"[START] GEX Oracle Whale Tracker v2.2 | {ts_now}")
     print(f"{'='*60}")
 
     init_db()
@@ -398,7 +397,6 @@ def run_hourly_batch():
     for rank, address in enumerate(WHALE_ADDRESSES, 1):
         info = client.get_address_info(address)
         if not info:
-            print(f"  [{rank:2d}] ⚠️  {address[:20]}... no data")
             continue
 
         balance_btc = info["balance_btc"]
@@ -412,23 +410,32 @@ def run_hourly_batch():
         snapshot_count += 1
 
         if rank % 10 == 0:
-            print(f"  → {rank}/{len(WHALE_ADDRESSES)} done (source: {info.get('source','')})")
-        time.sleep(0.5)
+            print(f"  → {rank}/{len(WHALE_ADDRESSES)} snapshots done")
+        time.sleep(0.8)   # 0.8s between requests → ~75 req/min, well under limits
 
     conn.commit()
+    client.print_stats()
     print(f"  → Snapshots complete: {snapshot_count}/{len(WHALE_ADDRESSES)}")
 
+    # Reset stats for TX phase
+    client.stats = {"success": 0, "failed": 0, "fallback_used": 0}
+
     # ── Step 2: Transaction Granularity ───────────────────────────────────────
-    print(f"\n[2/4] Transaction collection (50 txs/address — granularity: TXID/direction/amount/counterparty/block time)...")
+    print(f"\n[2/4] Transaction collection (50 txs/address)...")
+    print(f"      Granularity per tx: txid | direction | amount (BTC) | block time | counterparty | fee | input/output count")
     tx_total = 0
+
     for i, address in enumerate(WHALE_ADDRESSES, 1):
         txs = client.get_address_txs(address, limit=50)
+
         for tx in txs:
             txid       = tx.get("txid", "")
             status     = tx.get("status", {})
             block_time = status.get("block_time")
-            ts_block   = datetime.fromtimestamp(block_time, tz=timezone.utc).isoformat() if block_time else None
+            ts_block   = (datetime.fromtimestamp(block_time, tz=timezone.utc).isoformat()
+                          if block_time else None)
 
+            # Compute net flow direction for this specific address
             value_in  = sum(
                 inp.get("prevout", {}).get("value", 0)
                 for inp in tx.get("vin", [])
@@ -443,6 +450,7 @@ def run_hourly_batch():
             direction = "out" if value_in > value_out else "in"
             value_btc = abs(value_in - value_out)
 
+            # Identify known exchange counterparty
             all_addrs    = (
                 [inp.get("prevout", {}).get("scriptpubkey_address", "") for inp in tx.get("vin",  [])] +
                 [out.get("scriptpubkey_address", "")                    for out in tx.get("vout", [])]
@@ -454,7 +462,8 @@ def run_hourly_batch():
             try:
                 c.execute("""INSERT OR IGNORE INTO transactions
                     (txid, address, ts_block, ts_fetched, direction, value_btc,
-                     block_height, fee_sat, input_count, output_count, is_coinbase, counterparty)
+                     block_height, fee_sat, input_count, output_count,
+                     is_coinbase, counterparty)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (txid, address, ts_block, ts_now, direction, value_btc,
                      status.get("block_height"), tx.get("fee"),
@@ -462,14 +471,15 @@ def run_hourly_batch():
                      1 if tx.get("vin", [{}])[0].get("is_coinbase") else 0,
                      counterparty))
                 tx_total += 1
-            except:
+            except Exception:
                 pass
 
         if i % 20 == 0:
             print(f"  → {i}/{len(WHALE_ADDRESSES)} addresses done ({tx_total} txs total)")
-        time.sleep(0.5)
+        time.sleep(0.8)
 
     conn.commit()
+    client.print_stats()
     print(f"  → Transaction collection complete: {tx_total} new records")
 
     # ── Step 3: Behavior Analysis ──────────────────────────────────────────────
@@ -483,7 +493,8 @@ def run_hourly_batch():
 
     for sig in se + dw:
         c.execute("""INSERT INTO behavior_signals
-            (ts, signal_type, strength, address_count, btc_volume, direction, description, raw_json)
+            (ts, signal_type, strength, address_count, btc_volume,
+             direction, description, raw_json)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (ts_now, sig["signal_type"], sig.get("strength", 0),
              sig.get("address_count", 1), sig.get("btc_volume", 0),
@@ -496,8 +507,9 @@ def run_hourly_batch():
            "DORMANT_WAKE"       if dw else "NONE")
 
     c.execute("""INSERT OR REPLACE INTO hourly_summary
-        (ts, total_whale_volume, exchange_inflow, exchange_outflow, dormant_wake_count,
-         sync_event_count, net_exchange_flow, signal_score, top_signal)
+        (ts, total_whale_volume, exchange_inflow, exchange_outflow,
+         dormant_wake_count, sync_event_count, net_exchange_flow,
+         signal_score, top_signal)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (hb, sum(s.get("btc_volume", 0) for s in se),
          ef["inflow"], ef["outflow"], len(dw), len(se), ef["net"], sc, top))
@@ -518,14 +530,14 @@ def run_hourly_batch():
         "dormant_wakes":     len(dw),
         "top_signal":        top,
         "addresses_tracked": snapshot_count,
-        "api_source":        client.working_host or "blockchain.info",
+        "tx_records":        tx_total,
     }
     DATA_DIR.mkdir(exist_ok=True)
     with open(DATA_DIR / "latest_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
 
     print(f"  → data/latest_summary.json written")
-    print(f"\n[DONE] addresses_tracked={snapshot_count} | score={sc:+.3f} | api={summary['api_source']}")
+    print(f"\n[DONE] addresses={snapshot_count} | txs={tx_total} | score={sc:+.3f}")
     return summary
 
 
