@@ -1,4 +1,4 @@
-name: GEX Oracle - Whale Tracker (Hourly)
+name: SideProject_WhaleTracker (Hourly)
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       debug_mode:
-        description: '啟用 debug 輸出'
+        description: 'Enable debug output'
         required: false
         default: 'false'
 
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   collect-and-analyze:
-    name: 鯨魚數據採集 & 信號生成
+    name: Whale Data Collection & Signal Generation
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -43,30 +43,29 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── 診斷：測試哪個 API 在 Actions runner 上可用 ──────────────────────
       - name: Diagnose API connectivity
         run: |
-          echo "=== API 連通性測試 ==="
+          echo "=== API Connectivity Test ==="
           python3 - << 'PYEOF'
-          import requests, json
+          import requests, json, os
 
-          TEST_ADDR = "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo"  # Binance 已知地址
+          TEST_ADDR = "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo"
 
           apis = {
-              "mempool.space":      f"https://mempool.space/api/address/{TEST_ADDR}",
-              "blockstream.info":   f"https://blockstream.info/api/address/{TEST_ADDR}",
-              "blockchain.info":    f"https://blockchain.info/rawaddr/{TEST_ADDR}?limit=1",
-              "bitaps.com":         f"https://api.bitaps.com/btc/v1/blockchain/address/state/{TEST_ADDR}",
-              "sochain.com":        f"https://sochain.com/api/v2/get_address_balance/BTC/{TEST_ADDR}",
-              "btcscan.org":        f"https://btcscan.org/api/address/{TEST_ADDR}",
+              "mempool.space":    f"https://mempool.space/api/address/{TEST_ADDR}",
+              "blockstream.info": f"https://blockstream.info/api/address/{TEST_ADDR}",
+              "blockchain.info":  f"https://blockchain.info/rawaddr/{TEST_ADDR}?limit=1",
+              "bitaps.com":       f"https://api.bitaps.com/btc/v1/blockchain/address/state/{TEST_ADDR}",
+              "sochain.com":      f"https://sochain.com/api/v2/get_address_balance/BTC/{TEST_ADDR}",
           }
 
           results = {}
           for name, url in apis.items():
               try:
-                  r = requests.get(url, timeout=10, headers={"User-Agent": "GEX-Oracle/2.0"})
+                  r = requests.get(url, timeout=10, headers={"User-Agent": "GEX-Oracle/2.1"})
                   results[name] = r.status_code
-                  print(f"  {'✅' if r.status_code==200 else '❌'} {name}: HTTP {r.status_code}")
+                  icon = "✅" if r.status_code == 200 else "❌"
+                  print(f"  {icon} {name}: HTTP {r.status_code}")
                   if r.status_code == 200:
                       d = r.json()
                       print(f"     sample keys: {list(d.keys())[:5]}")
@@ -74,13 +73,11 @@ jobs:
                   results[name] = str(e)[:60]
                   print(f"  ❌ {name}: {str(e)[:60]}")
 
-          # 寫入結果供下一步使用
-          import os
-          working = [k for k,v in results.items() if v == 200]
+          working = [k for k, v in results.items() if v == 200]
+          os.makedirs("data", exist_ok=True)
           with open("data/api_probe.json", "w") as f:
               json.dump({"results": results, "working": working}, f, indent=2)
-          print(f"\n可用 API: {working}")
-          os.makedirs("data", exist_ok=True)
+          print(f"\nWorking APIs: {working}")
           PYEOF
 
       - name: Run whale tracker
@@ -94,28 +91,33 @@ jobs:
       - name: Write job summary
         if: always()
         run: |
-          echo "## 🐳 GEX Oracle 鯨魚信號報告" >> $GITHUB_STEP_SUMMARY
+          echo "## 🐳 SideProject_WhaleTracker Signal Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**執行時間**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Run time**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f data/api_probe.json ]; then
-            echo "### API 連通性" >> $GITHUB_STEP_SUMMARY
+            echo "### API Connectivity" >> $GITHUB_STEP_SUMMARY
             python3 -c "
           import json
           d = json.load(open('data/api_probe.json'))
-          for k,v in d['results'].items():
-            icon = '✅' if v == 200 else '❌'
-            print(f'- {icon} {k}: {v}')
+          for k, v in d['results'].items():
+              icon = '✅' if v == 200 else '❌'
+              print(f'- {icon} {k}: {v}')
             " >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           if [ -f data/oracle_signal.json ]; then
             SCORE=$(python3 -c "import json; d=json.load(open('data/oracle_signal.json')); print(d['whale_signal']['raw_score'])")
+            TREND=$(python3 -c "import json; d=json.load(open('data/oracle_signal.json')); print(d['whale_signal']['trend'])")
             TRACKED=$(python3 -c "import json; d=json.load(open('data/latest_summary.json')); print(d.get('addresses_tracked',0))")
-            echo "| 指標 | 數值 |" >> $GITHUB_STEP_SUMMARY
-            echo "|------|------|" >> $GITHUB_STEP_SUMMARY
-            echo "| 信號評分 | \`${SCORE}\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| 追蹤地址數 | ${TRACKED} |" >> $GITHUB_STEP_SUMMARY
+            NARRATIVE=$(python3 -c "import json; d=json.load(open('data/oracle_signal.json')); print(d['narrative'])")
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Signal Score | \`${SCORE}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Trend | ${TREND} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Addresses Tracked | ${TRACKED} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> ${NARRATIVE}" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Commit data updates
@@ -133,19 +135,19 @@ jobs:
           python3 -c "
           import json, sys
           with open('data/oracle_signal.json') as f:
-            d = json.load(f)
+              d = json.load(f)
           triggers = d['whale_signal']['hard_triggers']
           if triggers:
-            for t in triggers:
-              print(f'  ⚡ [{t[\"type\"]}] {t[\"message\"]}')
-            sys.exit(2)
+              for t in triggers:
+                  print(f'  ⚡ [{t[\"type\"]}] {t[\"message\"]}')
+              sys.exit(2)
           else:
-            print('✅ 無硬性觸發條件')
+              print('✅ No hard triggers')
           "
         continue-on-error: true
 
   daily-report:
-    name: 每日鯨魚行為報告
+    name: Daily Whale Behavior Report
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' && startsWith(github.event.schedule, '0 0')
     needs: collect-and-analyze
