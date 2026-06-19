@@ -43,6 +43,46 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # ── 診斷：測試哪個 API 在 Actions runner 上可用 ──────────────────────
+      - name: Diagnose API connectivity
+        run: |
+          echo "=== API 連通性測試 ==="
+          python3 - << 'PYEOF'
+          import requests, json
+
+          TEST_ADDR = "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo"  # Binance 已知地址
+
+          apis = {
+              "mempool.space":      f"https://mempool.space/api/address/{TEST_ADDR}",
+              "blockstream.info":   f"https://blockstream.info/api/address/{TEST_ADDR}",
+              "blockchain.info":    f"https://blockchain.info/rawaddr/{TEST_ADDR}?limit=1",
+              "bitaps.com":         f"https://api.bitaps.com/btc/v1/blockchain/address/state/{TEST_ADDR}",
+              "sochain.com":        f"https://sochain.com/api/v2/get_address_balance/BTC/{TEST_ADDR}",
+              "btcscan.org":        f"https://btcscan.org/api/address/{TEST_ADDR}",
+          }
+
+          results = {}
+          for name, url in apis.items():
+              try:
+                  r = requests.get(url, timeout=10, headers={"User-Agent": "GEX-Oracle/2.0"})
+                  results[name] = r.status_code
+                  print(f"  {'✅' if r.status_code==200 else '❌'} {name}: HTTP {r.status_code}")
+                  if r.status_code == 200:
+                      d = r.json()
+                      print(f"     sample keys: {list(d.keys())[:5]}")
+              except Exception as e:
+                  results[name] = str(e)[:60]
+                  print(f"  ❌ {name}: {str(e)[:60]}")
+
+          # 寫入結果供下一步使用
+          import os
+          working = [k for k,v in results.items() if v == 200]
+          with open("data/api_probe.json", "w") as f:
+              json.dump({"results": results, "working": working}, f, indent=2)
+          print(f"\n可用 API: {working}")
+          os.makedirs("data", exist_ok=True)
+          PYEOF
+
       - name: Run whale tracker
         run: python src/whale_tracker.py
         env:
@@ -58,27 +98,31 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**執行時間**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f data/api_probe.json ]; then
+            echo "### API 連通性" >> $GITHUB_STEP_SUMMARY
+            python3 -c "
+          import json
+          d = json.load(open('data/api_probe.json'))
+          for k,v in d['results'].items():
+            icon = '✅' if v == 200 else '❌'
+            print(f'- {icon} {k}: {v}')
+            " >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           if [ -f data/oracle_signal.json ]; then
-            SCORE=$(python -c "import json; d=json.load(open('data/oracle_signal.json')); print(d['whale_signal']['raw_score'])")
-            TREND=$(python -c "import json; d=json.load(open('data/oracle_signal.json')); print(d['whale_signal']['trend'])")
-            TRIGGERS=$(python -c "import json; d=json.load(open('data/oracle_signal.json')); print(len(d['whale_signal']['hard_triggers']))")
-            NARRATIVE=$(python -c "import json; d=json.load(open('data/oracle_signal.json')); print(d['narrative'])")
+            SCORE=$(python3 -c "import json; d=json.load(open('data/oracle_signal.json')); print(d['whale_signal']['raw_score'])")
+            TRACKED=$(python3 -c "import json; d=json.load(open('data/latest_summary.json')); print(d.get('addresses_tracked',0))")
             echo "| 指標 | 數值 |" >> $GITHUB_STEP_SUMMARY
             echo "|------|------|" >> $GITHUB_STEP_SUMMARY
             echo "| 信號評分 | \`${SCORE}\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| 趨勢 | ${TREND} |" >> $GITHUB_STEP_SUMMARY
-            echo "| 硬性觸發 | ${TRIGGERS} 個 |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> ${NARRATIVE}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ 信號文件未生成" >> $GITHUB_STEP_SUMMARY
+            echo "| 追蹤地址數 | ${TRACKED} |" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Commit data updates
         run: |
           git config user.name  "GEX Oracle Bot"
           git config user.email "gex-oracle@noreply.github.com"
-          git add data/latest_summary.json data/oracle_signal.json 2>/dev/null || true
+          git add data/latest_summary.json data/oracle_signal.json data/api_probe.json 2>/dev/null || true
           git diff --staged --quiet || git commit -m "chore(data): whale snapshot $(date -u '+%Y-%m-%dT%H:00Z')"
           git push
         env:
@@ -86,22 +130,20 @@ jobs:
 
       - name: Check hard triggers
         run: |
-          python -c "
+          python3 -c "
           import json, sys
           with open('data/oracle_signal.json') as f:
             d = json.load(f)
           triggers = d['whale_signal']['hard_triggers']
           if triggers:
-            print('⚡ 硬性觸發條件滿足：')
             for t in triggers:
-              print(f'  - [{t[\"type\"]}] {t[\"message\"]}')
+              print(f'  ⚡ [{t[\"type\"]}] {t[\"message\"]}')
             sys.exit(2)
           else:
             print('✅ 無硬性觸發條件')
           "
         continue-on-error: true
 
-  # 每日報告：只在 UTC 00:00 的排程觸發時執行，手動觸發不跑
   daily-report:
     name: 每日鯨魚行為報告
     runs-on: ubuntu-latest
@@ -112,24 +154,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_PAT }}
-
       - uses: actions/cache@v4
         with:
           path: data/whale.db
           key: whale-db-${{ github.run_number }}
           restore-keys: |
             whale-db-
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: 'pip'
-
       - run: pip install -r requirements.txt
-
-      - name: Generate daily report
-        run: python src/daily_report.py
-
+      - run: python src/daily_report.py
       - name: Commit daily report
         run: |
           git config user.name  "GEX Oracle Bot"
