@@ -141,6 +141,18 @@ def init_db():
         ts TEXT PRIMARY KEY, total_whale_volume REAL, exchange_inflow REAL,
         exchange_outflow REAL, dormant_wake_count INTEGER, sync_event_count INTEGER,
         net_exchange_flow REAL, signal_score REAL, top_signal TEXT)""")
+    # Migration: add new columns if upgrading from older schema
+    migrations = [
+        "ALTER TABLE address_snapshots ADD COLUMN balance_btc_total REAL",
+        "ALTER TABLE address_snapshots ADD COLUMN tx_count_confirmed INTEGER",
+        "ALTER TABLE address_snapshots ADD COLUMN source TEXT",
+    ]
+    for sql in migrations:
+        try:
+            c.execute(sql)
+        except sqlite3.OperationalError:
+            pass  # Column already exists — skip
+
     conn.commit()
     conn.close()
     print("[DB] Initialized")
