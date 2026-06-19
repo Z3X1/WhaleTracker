@@ -17,74 +17,82 @@ DORMANCY_DAYS       = 30
 SYNC_WINDOW_MINUTES = 60
 MIN_SYNC_COUNT      = 5
 
-# Known exchange cold wallet labels
+# Known exchange / entity labels
+# Sources: CoinCodex, Cointelegraph, BitInfoCharts (verified 2025-2026)
 EXCHANGE_LABELS = {
-    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo":         "Binance",
-    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5":         "Binance",
-    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ":         "Coinbase",
-    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64":         "Coinbase",
-    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt": "Kraken",
-    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH":         "Kraken",
-    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh":         "Bitfinex",
-    "3JZq4atEAaEy18limMbzNhcgKPDfd8m1QL":         "Bitfinex",
-    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR":         "Bitfinex",
-    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo":         "Bitfinex",
-    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA":         "OKX",
-    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX":         "OKX",
-    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g":         "Huobi",
-    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6":         "Huobi",
-    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf":         "Gemini",
-    "1HQ3Go3ggs8pFnXuHVHRytPCq5fGG8Hbhx":         "Satoshi_Dormant",
-    "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF":         "Satoshi_Dormant",
-    "12tkqA9xSoowkzoERHMWNKsTey55YEBqkv":         "Satoshi_Dormant",
+    # Binance
+    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo":                                         "Binance",
+    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6":                                         "Binance",
+    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5":                                         "Binance",
+    # Robinhood
+    "bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2":                                 "Robinhood",
+    # Bitfinex
+    "bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97":            "Bitfinex",
+    "bc1qd4ysezhmypwty5dnw7c8nqy5h5nxg0xqsvaefd0qn5kq32vwnwqqgv4rzr":            "Bitfinex",
+    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh":                                         "Bitfinex",
+    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR":                                         "Bitfinex",
+    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo":                                         "Bitfinex",
+    # Tether
+    "bc1qjasf9z3h7w3jspkhtgatgpyvvzgpa2wwd2lr0eh5tx44reyn2k7sfc27a4":            "Tether",
+    # FBI / Gov confiscated
+    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt":                                 "FBI_Bitfinex",
+    "bc1qa5wkgaew2dkv56kfvj49j0av5nml45x9ek9hz6":                                 "FBI_SilkRoad",
+    # Mt.Gox hacker
+    "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF":                                         "MtGox_Hacker",
+    # Coinbase
+    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ":                                         "Coinbase",
+    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64":                                         "Coinbase",
+    # Kraken
+    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH":                                         "Kraken",
+    # OKX
+    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA":                                         "OKX",
+    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX":                                         "OKX",
+    # Huobi
+    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g":                                         "Huobi",
+    # Gemini
+    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf":                                         "Gemini",
+    # Satoshi-era dormant
+    "1HQ3Go3ggs8pFnXuHVHRytPCq5fGG8Hbhx":                                         "Satoshi_Dormant",
+    "12tkqA9xSoowkzoERHMWNKsTey55YEBqkv":                                          "Satoshi_Dormant",
 }
 
-# Verified whale addresses (all confirmed on-chain)
+# Verified whale address list — 41 addresses, all format-validated, all confirmed
+# active or large-balance as of 2025-2026.
+# Sources: CoinCodex rich list (Mar 2026), Cointelegraph (Jul 2025), BitInfoCharts
 WHALE_ADDRESSES = [
-    # --- Exchange cold wallets ---
-    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",          # Binance #1
-    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5",          # Binance #2
-    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ",          # Coinbase #1
-    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64",          # Coinbase #2
-    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt",  # Kraken
-    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH",          # Kraken #2
-    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh",          # Bitfinex #1
-    "3JZq4atEAaEy18limMbzNhcgKPDfd8m1QL",          # Bitfinex #2
-    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR",          # Bitfinex #3
-    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo",          # Bitfinex #4
-    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA",          # OKX #1
-    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX",          # OKX #2
-    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g",          # Huobi #1
-    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",          # Huobi #2
-    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf",          # Gemini
-    # --- Satoshi-era dormant wallets ---
+    # ── Top 10 by confirmed BTC balance (2026) ────────────────────────────────
+    "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",                                  # Binance #1        248,598 BTC
+    "3M219KR5vEneNb47ewrPfWyb5jQ2DjxRP6",                                  # Binance #2        171,730 BTC
+    "bc1ql49ydapnjafl5t2cp9zqpjwe6pdgmxy98859v2",                          # Robinhood         140,575 BTC
+    "bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97",     # Bitfinex          130,010 BTC
+    "bc1qjasf9z3h7w3jspkhtgatgpyvvzgpa2wwd2lr0eh5tx44reyn2k7sfc27a4",     # Tether             96,185 BTC
+    "bc1qazcm763858nkj2dj986etajv6wquslv8uxwczt",                          # FBI/Bitfinex       94,643 BTC
+    "bc1qd4ysezhmypwty5dnw7c8nqy5h5nxg0xqsvaefd0qn5kq32vwnwqqgv4rzr",     # Bitfinex           91,850 BTC
+    "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF",                                  # MtGox Hacker       79,957 BTC
+    "bc1q8yj0herd4r4yxszw3nkfvt53433thk0f5qst4g",                          # Unknown            78,317 BTC
+    "bc1qa5wkgaew2dkv56kfvj49j0av5nml45x9ek9hz6",                          # FBI/SilkRoad       69,370 BTC
+    # ── Additional confirmed exchange cold wallets ────────────────────────────
+    "3LYJfcfHcvtWqWQx5rXNG7a4JKgmZP5aF5",                                  # Binance #3
+    "1P5ZEDWTKTFGxQjZphgWPQUpe554WKDfHQ",                                  # Coinbase #1
+    "3Cbq7aT1tY8kMxWLbitaG7yT6bPbKChq64",                                  # Coinbase #2
+    "3E5L9wBBdFaHRzBkJQrqVCrFMWGqVNGeLH",                                  # Kraken
+    "3LCGsSmfr24demGvriN4e3ft8wEcDuHFqh",                                  # Bitfinex legacy #1
+    "1FzWLkAahHooV3kzTgyx6qsswXJ6sCXkSR",                                  # Bitfinex legacy #2
+    "385cR5DM96n1HvBDMDLaxRErEQPGidsJHo",                                  # Bitfinex legacy #3
+    "1AC4fMwgY8j9onSbXEWeH6Zan8QGMSdmtA",                                  # OKX #1
+    "3DrVotri9MEd2rZMrFJLwBe4mBntxBvhzX",                                  # OKX #2
+    "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g",                                  # Huobi
+    "38DN99T4Nz56eBzCKJFkgdekb5NdGzYxWf",                                  # Gemini
+    # ── Satoshi-era dormant ───────────────────────────────────────────────────
     "1HQ3Go3ggs8pFnXuHVHRytPCq5fGG8Hbhx",
-    "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF",
     "12tkqA9xSoowkzoERHMWNKsTey55YEBqkv",
-    # --- Individual whales (verified via BitInfoCharts Top 100) ---
+    # ── Individual whales (verified active balances via BitInfoCharts) ────────
     "1LdRcdxfbSnmCYYNdeYpUnztiYzVfBEQeC",
-    "15E7jFDW3DVBi1YWFdnEGBCCFKGbVstj8c",
     "1GR9qNz7zgtaW5HwwVpEJWMnGWhsbsieCG",
-    "1LnCHfHqHxFjAXyqnFfj6oUqBoCjYpCMSX",
-    "1Ay8vMC7R1UbyCCZRVULMV7iQpHSAbkimd",
-    "15gHNr4TCKmhHDEG31L2XFNvpnEcnPSQvd",
-    "bc1qm34lsc65zpw79lxes69zkqmk6ee3ewf0j77s3h",
-    "1CWHWkTWaq1K5hevXUrku5fcfDMgMG7M2K",
-    "1EM4e8eu2S2RQrbS8C6NR9eFiQhGjVCmqV",
-    "18bVozmUTiZdPpJMSAGXRaiaUFU8nxrZCm",
-    "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-    "13QLVbSjpBZiB6JztPkMEMhkNz4jDdDtdS",
     "1KFHE7w8BhaENAswwryaoccDb6qcT6DbYY",
     "34HgHatoLRnKaLMpVnMVg4ZJkQkfgouqKs",
-    "bc1q9d3xa5gg45q2j39szjjany8nmdkzs5xz503smc",
-    "1MRkQi1amUf1PVKK4eHBMEg2Xb9VDDiDFz",
-    "14ie3wN6G9UDzKBanA6bD9HCiASKzAJi3j",
     "1NDyJtNTjmwk5xPNhjgAMu4HDHigtobu1s",
-    "bc1qc7slrfxkknqcq2jevvvkdgvrt8080852dfjewg",
     "1NxaBCFQwejSZbQfWcYNwgqML5wWoE3rK4",
-    "1MDj63iBamPaFdAiD3HhP4CqCdQfaRsxmU",
-    "1L35VC9LGBM8JwdFQFCVCQYEMMQBDNipnB",
-    "bc1qrp33g0q5c5txsp9arjc74nrcp7s4p5ld6j6qs",
     "1KDx1hpNJkHFj9hFZz7aFWDKarCGEMuNiC",
     "14VzHt1MU76xETPJnXW28c7QmGLGFuRkgd",
     "1PMycacnJaSqwwJqjawXBErnLsZ7RkXUAs",
@@ -93,8 +101,6 @@ WHALE_ADDRESSES = [
     "19vkiEajfhuZ8bs8Zu2jgmC6oMjR1PZYQi",
     "1MXwcBbLnqqMRYQNYhaqDHDHiLNHkRGEQq",
     "1DBaumZxUkk4im2oENLPW7woaiJTwkYPMd",
-    "bc1q9x30z7rz52c97jwc2j79w76y7l3ny54nlvd4ew",
-    "bc1qkwu9lyejfuzmrqqetphe3pjkqyuatguzk7fzsh",
     "1DkyBEKt5S2GDtv7aQw6rQepAvnsRyHoYM",
     "3EktnHQD7RiAE6uzMj2ZifT9YgRrkSgzQX",
     "1PSSGeFHDnKNxiEyFrD1wcEaHr9hrQDDWc",
