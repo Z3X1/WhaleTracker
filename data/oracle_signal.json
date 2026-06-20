@@ -1,11 +1,11 @@
 {
   "meta": {
-    "generated_at": "2026-06-20T05:14:55.768197+00:00",
+    "generated_at": "2026-06-20T08:54:11.398030+00:00",
     "version": "signal_bridge_v1.0",
     "framework": "GEX Oracle Unified Field Theory"
   },
   "whale_signal": {
-    "ts": "2026-06-20T05:00:00Z",
+    "ts": "2026-06-20T08:00:00Z",
     "raw_score": 0.0,
     "weighted_score": 0.0,
     "components": {
@@ -25,8 +25,8 @@
         "weight": 0.15
       },
       "balance_delta": {
-        "score": 0.001773635440000362,
-        "net_btc": 0.886817720000181,
+        "score": 0.0013815317399730703,
+        "net_btc": 0.6907658699865351,
         "weight": 0.1
       }
     },
@@ -45,7 +45,7 @@
   "raw_data": {
     "hourly_summaries": [
       {
-        "ts": "2026-06-20T05:00:00Z",
+        "ts": "2026-06-20T08:00:00Z",
         "signal_score": 0.0,
         "exchange_inflow": 0.0,
         "exchange_outflow": 0.0,
@@ -55,7 +55,7 @@
         "top_signal": "NONE"
       },
       {
-        "ts": "2026-06-20T00:00:00Z",
+        "ts": "2026-06-20T05:00:00Z",
         "signal_score": 0.0,
         "exchange_inflow": 0.0,
         "exchange_outflow": 0.0,
@@ -70,9 +70,16 @@
       {
         "address": "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g",
         "label": "Huobi",
-        "balance_btc": 5504.21689959,
-        "balance_delta": 0.886817720000181,
+        "balance_btc": 5504.90765997,
+        "balance_delta": 0.6907603800000288,
         "rank": 20
+      },
+      {
+        "address": "1FeexV6bAHb8ybZjqQMjJrcCrHGW9sb6uF",
+        "label": "MtGox_Hacker",
+        "balance_btc": 79957.26862758,
+        "balance_delta": 5.489986506290734e-06,
+        "rank": 8
       },
       {
         "address": "34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo",
@@ -94,13 +101,6 @@
         "balance_btc": 140849.98536624,
         "balance_delta": 0.0,
         "rank": 3
-      },
-      {
-        "address": "bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97",
-        "label": "Bitfinex",
-        "balance_btc": 130010.07900252,
-        "balance_delta": 0.0,
-        "rank": 4
       }
     ]
   }
