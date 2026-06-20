@@ -2,14 +2,11 @@
   "results": {
     "mempool.space": 200,
     "blockstream.info": 200,
-    "blockchain.info": 200,
-    "bitaps.com": 200,
-    "sochain.com": "HTTPSConnectionPool(host='sochain.com', port=443): Read time"
+    "blockchain.info": 200
   },
   "working": [
     "mempool.space",
     "blockstream.info",
-    "blockchain.info",
-    "bitaps.com"
+    "blockchain.info"
   ]
 }
