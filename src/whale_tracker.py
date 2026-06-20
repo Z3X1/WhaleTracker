@@ -179,8 +179,8 @@ class ChainClient:
         "https://mempool.space",
         "https://blockstream.info",
     ]
-    MAX_RETRIES  = 3
-    RETRY_DELAYS = [1, 3, 7]   # seconds between retries per host
+    MAX_RETRIES  = 2
+    RETRY_DELAYS = [1, 3]      # seconds between retries per host (reduced to avoid timeout bloat)
 
     def __init__(self):
         self.session = requests.Session()
@@ -214,8 +214,8 @@ class ChainClient:
                     time.sleep(delay)
                 except Exception as e:
                     time.sleep(delay)
-            # Small pause between hosts to avoid thundering herd
-            time.sleep(0.3)
+            # Small pause between hosts
+            time.sleep(0.1)
         return None
 
     def _get_blockchain_info(self, address: str, limit: int = 1) -> dict | None:
