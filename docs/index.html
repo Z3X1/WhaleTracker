@@ -60,7 +60,7 @@
 <body>
 <header>
   <h1>🐳 GEX Oracle — Whale On-Chain Behavior Tracker</h1>
-  <div class="meta">Updated: 2026-06-24 20:49 UTC | 41 addresses | Source: mempool.space / blockstream.info</div>
+  <div class="meta">Updated: 2026-06-24 22:17 UTC | 41 addresses | Source: mempool.space / blockstream.info</div>
 </header>
 
 <div class="tabs">
@@ -86,12 +86,12 @@
     </div>
     <div class="card">
       <h2>Total BTC Tracked</h2>
-      <div class="kpi" style="color:var(--blue)">1,360,896</div>
-      <div class="sub">28 addresses | ≈ $142,894,096,239M @ $105k</div>
+      <div class="kpi" style="color:var(--blue)">1,360,835</div>
+      <div class="sub">28 addresses | ≈ $142,887,678,428M @ $105k</div>
     </div>
     <div class="card">
       <h2>Large Txs (24h)</h2>
-      <div class="kpi" style="color:var(--purple)">13</div>
+      <div class="kpi" style="color:var(--purple)">15</div>
       <div class="sub">Transactions ≥ 10 BTC captured</div>
     </div>
   </div>
@@ -121,7 +121,7 @@
 
 <!-- TAB 2: ADDRESSES -->
 <div id="addresses" class="pane">
-  <div class="section-title">Whale Address Balance Snapshot — 2026-06-24 20:49 UTC</div>
+  <div class="section-title">Whale Address Balance Snapshot — 2026-06-24 22:17 UTC</div>
   <table>
     <thead><tr>
       <th>Rank</th><th>Address</th><th>Label</th>
@@ -268,9 +268,9 @@
           <td>#20</td>
           <td class="mono">1Kr6QSydW9bFQG1mXiPNNu...</td>
           <td style="color:#58a6ff">Huobi</td>
-          <td class="num">5,813.44</td>
-          <td class="num" style="color:#3fb950">+240.2634</td>
-          <td class="num">484,256</td>
+          <td class="num">5,752.32</td>
+          <td class="num" style="color:#f85149">-61.1220</td>
+          <td class="num">484,261</td>
           <td style="color:#8b949e;font-size:11px">esplora</td>
         </tr>
         <tr>
@@ -415,6 +415,17 @@
           <td style="color:#8b949e">955210</td>
         </tr>
         <tr>
+          <td class="mono" style="font-size:10px">931de8683b6cd432c8...</td>
+          <td class="mono" style="font-size:10px">1Kr6QSydW9bFQG1mXiPN...</td>
+          <td>2026-06-24 21:42</td>
+          <td style="color:#3fb950;font-weight:600">OUT</td>
+          <td class="num" style="color:#d29922;font-weight:600">139.06</td>
+          <td style="color:#58a6ff">—</td>
+          <td class="num" style="color:#8b949e">3,221</td>
+          <td style="color:#8b949e">4→2</td>
+          <td style="color:#8b949e">955234</td>
+        </tr>
+        <tr>
           <td class="mono" style="font-size:10px">fd82bce451bb50a7f0...</td>
           <td class="mono" style="font-size:10px">1Kr6QSydW9bFQG1mXiPN...</td>
           <td>2026-06-24 20:40</td>
@@ -457,6 +468,17 @@
           <td class="num" style="color:#8b949e">4,976</td>
           <td style="color:#8b949e">8→2</td>
           <td style="color:#8b949e">955207</td>
+        </tr>
+        <tr>
+          <td class="mono" style="font-size:10px">6bf38e6636b46e01fd...</td>
+          <td class="mono" style="font-size:10px">1Kr6QSydW9bFQG1mXiPN...</td>
+          <td>2026-06-24 21:06</td>
+          <td style="color:#f85149;font-weight:600">IN</td>
+          <td class="num" style="color:#d29922;font-weight:600">53.44</td>
+          <td style="color:#58a6ff">—</td>
+          <td class="num" style="color:#8b949e">1,977</td>
+          <td style="color:#8b949e">3→2</td>
+          <td style="color:#8b949e">955230</td>
         </tr>
         <tr>
           <td class="mono" style="font-size:10px">56d5adb965f93ae81a...</td>
@@ -569,17 +591,17 @@
   <div class="grid3" style="margin-bottom:20px">
     <div class="card">
       <h2>Whale Behavior Raw Score</h2>
-      <div class="score-big" style="color:#8b949e">+0.048</div>
+      <div class="score-big" style="color:#8b949e">-0.012</div>
       <div class="sub">Trend: STABLE</div>
     </div>
     <div class="card">
       <h2>Weighted Contribution</h2>
-      <div class="score-big" style="color:var(--yellow)">+0.0134</div>
+      <div class="score-big" style="color:var(--yellow)">-0.0034</div>
       <div class="sub">= score × 0.28 (behavior weight in Unified Field Eq.)</div>
     </div>
     <div class="card">
       <h2>Signal Confidence</h2>
-      <div class="score-big" style="color:var(--blue)">40%</div>
+      <div class="score-big" style="color:var(--blue)">45%</div>
       <div class="sub">Based on data depth (hours × tx coverage)</div>
     </div>
   </div>
@@ -589,7 +611,7 @@
     P(settlement at X) =<br>
     &nbsp;&nbsp;0.40 × GBM<br>
     &nbsp;&nbsp;0.10 × GEX<br>
-    &nbsp;&nbsp;<span style="color:var(--yellow)">0.28 × BehaviorSignal ← whale on-chain (+0.0134)</span><br>
+    &nbsp;&nbsp;<span style="color:var(--yellow)">0.28 × BehaviorSignal ← whale on-chain (-0.0034)</span><br>
     &nbsp;&nbsp;0.12 × Bayesian<br>
     &nbsp;&nbsp;0.10 × TimeDecay
   </div>
@@ -658,21 +680,21 @@
           <td>
             <div style="display:flex;align-items:center;gap:4px">
               <div style="width:50px;text-align:right;color:#8b949e;font-size:10px">
-                </div>
+                ◀</div>
               <div style="background:#21262d;border-radius:3px;height:10px;width:100px;position:relative">
-                <div style="background:#3fb950;height:10px;border-radius:3px;
-                     width:24px;"></div>
+                <div style="background:#f85149;height:10px;border-radius:3px;
+                     width:6px;margin-left:44px"></div>
               </div>
-              <div style="width:50px;color:#8b949e;font-size:10px">▶</div>
+              <div style="width:50px;color:#8b949e;font-size:10px"></div>
             </div>
           </td>
-          <td class="num" style="color:#3fb950">+0.481</td>
-          <td class="num" style="color:#d29922">+0.0481</td>
+          <td class="num" style="color:#f85149">-0.122</td>
+          <td class="num" style="color:#d29922">-0.0122</td>
         </tr></tbody>
   </table>
 
   <div class="section-title">Narrative</div>
-  <div class="card" style="color:var(--text);line-height:1.6">Whale behavior neutral: +0.048 — no clear directional signal</div>
+  <div class="card" style="color:var(--text);line-height:1.6">Whale behavior neutral: -0.012 — no clear directional signal</div>
 </div>
 
 <script>
@@ -689,7 +711,7 @@ const chartOpts = (yMin, yMax) => ({
   }
 });
 
-const labels  = ["21:00", "23:00", "02:00", "06:00", "10:00", "13:00", "16:00", "18:00", "20:00"];
+const labels  = ["23:00", "02:00", "06:00", "10:00", "13:00", "16:00", "18:00", "20:00", "22:00"];
 const scores  = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 const flows   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 const inflow  = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
