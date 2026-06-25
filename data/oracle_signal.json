@@ -1,13 +1,13 @@
 {
   "meta": {
-    "generated_at": "2026-06-24T22:17:29.571763+00:00",
+    "generated_at": "2026-06-25T00:10:06.085002+00:00",
     "version": "signal_bridge_v1.0",
     "framework": "GEX Oracle Unified Field Theory"
   },
   "whale_signal": {
-    "ts": "2026-06-24T22:00:00Z",
-    "raw_score": -0.012,
-    "weighted_score": -0.0034,
+    "ts": "2026-06-25T00:00:00Z",
+    "raw_score": 0.019,
+    "weighted_score": 0.0053,
     "components": {
       "exchange_flow": {
         "score": 0.0,
@@ -25,8 +25,8 @@
         "weight": 0.15
       },
       "balance_delta": {
-        "score": -0.12224401399999987,
-        "net_btc": -61.12200699999994,
+        "score": 0.18806056757999978,
+        "net_btc": 94.03028378999988,
         "weight": 0.1
       }
     },
@@ -43,14 +43,24 @@
       "counterparty": null
     }
   },
-  "narrative": "Whale behavior neutral: -0.012 \u2014 no clear directional signal",
+  "narrative": "Whale behavior neutral: +0.019 \u2014 no clear directional signal",
   "oracle_input": {
-    "behavior_component": -0.0034,
+    "behavior_component": 0.0053,
     "hard_triggers": [],
     "confidence": 0.45
   },
   "raw_data": {
     "hourly_summaries": [
+      {
+        "ts": "2026-06-25T00:00:00Z",
+        "signal_score": 0.0,
+        "exchange_inflow": 0.0,
+        "exchange_outflow": 0.0,
+        "net_exchange_flow": 0.0,
+        "sync_event_count": 0,
+        "dormant_wake_count": 0,
+        "top_signal": "NONE"
+      },
       {
         "ts": "2026-06-24T22:00:00Z",
         "signal_score": 0.0,
@@ -63,16 +73,6 @@
       },
       {
         "ts": "2026-06-24T20:00:00Z",
-        "signal_score": 0.0,
-        "exchange_inflow": 0.0,
-        "exchange_outflow": 0.0,
-        "net_exchange_flow": 0.0,
-        "sync_event_count": 0,
-        "dormant_wake_count": 0,
-        "top_signal": "NONE"
-      },
-      {
-        "ts": "2026-06-24T18:00:00Z",
         "signal_score": 0.0,
         "exchange_inflow": 0.0,
         "exchange_outflow": 0.0,
@@ -120,8 +120,8 @@
       {
         "address": "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g",
         "label": "Huobi",
-        "balance_btc": 5752.31780653,
-        "balance_delta": -61.12200699999994,
+        "balance_btc": 5846.34809032,
+        "balance_delta": 94.03028378999988,
         "rank": 20
       },
       {
