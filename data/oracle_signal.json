@@ -1,13 +1,13 @@
 {
   "meta": {
-    "generated_at": "2026-06-25T17:13:42.829437+00:00",
+    "generated_at": "2026-06-25T19:56:29.003969+00:00",
     "version": "signal_bridge_v1.0",
     "framework": "GEX Oracle Unified Field Theory"
   },
   "whale_signal": {
-    "ts": "2026-06-25T17:00:00Z",
-    "raw_score": 0.035,
-    "weighted_score": 0.0098,
+    "ts": "2026-06-25T19:00:00Z",
+    "raw_score": 0.0,
+    "weighted_score": 0.0,
     "components": {
       "exchange_flow": {
         "score": 0.0,
@@ -25,14 +25,14 @@
         "weight": 0.15
       },
       "balance_delta": {
-        "score": 0.34885396348000175,
-        "net_btc": 174.42698174000088,
+        "score": 0.0026342752199998358,
+        "net_btc": 1.317137609999918,
         "weight": 0.1
       }
     },
-    "trend": "INSUFFICIENT_DATA",
+    "trend": "STABLE",
     "hard_triggers": [],
-    "confidence": 0.27,
+    "confidence": 0.35,
     "large_tx_count": 2,
     "largest_tx": {
       "txid": "fa4178b3b8d4bdc3...",
@@ -43,14 +43,24 @@
       "counterparty": null
     }
   },
-  "narrative": "Whale behavior neutral: +0.035 \u2014 no clear directional signal",
+  "narrative": "Whale behavior neutral: +0.000 \u2014 no clear directional signal",
   "oracle_input": {
-    "behavior_component": 0.0098,
+    "behavior_component": 0.0,
     "hard_triggers": [],
-    "confidence": 0.27
+    "confidence": 0.35
   },
   "raw_data": {
     "hourly_summaries": [
+      {
+        "ts": "2026-06-25T19:00:00Z",
+        "signal_score": 0.0,
+        "exchange_inflow": 0.0,
+        "exchange_outflow": 0.0,
+        "net_exchange_flow": 0.0,
+        "sync_event_count": 0,
+        "dormant_wake_count": 0,
+        "top_signal": "NONE"
+      },
       {
         "ts": "2026-06-25T17:00:00Z",
         "signal_score": 0.0,
@@ -94,8 +104,8 @@
       {
         "address": "1Kr6QSydW9bFQG1mXiPNNu6WpJGmUa9i1g",
         "label": "Huobi",
-        "balance_btc": 5982.66777942,
-        "balance_delta": 174.42698174000088,
+        "balance_btc": 5983.98491703,
+        "balance_delta": 1.317137609999918,
         "rank": 20
       },
       {
