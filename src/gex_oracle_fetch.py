@@ -207,46 +207,9 @@ def fetch_all():
         data["oi"] = 10.5
         print("OI: fallback 10.5萬")
 
-    # ── LONG/SHORT（真實數據）──────────────────────────────
-    ls_sources = [
-        # Binance
-        ("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1",
-         lambda d: float(d[0]["longShortRatio"])),
-        ("https://fapi.binance.com/futures/data/topLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1",
-         lambda d: float(d[0]["longShortRatio"])),
-        ("https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=5m&limit=1",
-         lambda d: float(d[0]["longShortRatio"])),
-        # Bybit
-        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=5min&limit=1",
-         lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
-        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=1h&limit=1",
-         lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
-        # OKX
-        # OKX: longRatio是0-1小數，需轉換為ratio
-        ("https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio-contract?ccy=BTC&period=5m&limit=1",
-         lambda d: float(d["data"][0][1])/(1-float(d["data"][0][1])) if float(d["data"][0][1]) not in [0,1] else None),
-        ("https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=5m&limit=1",
-         lambda d: float(d["data"][0][1])/(1-float(d["data"][0][1])) if float(d["data"][0][1]) not in [0,1] else None),
-        # CoinGlass
-        ("https://open-api.coinglass.com/public/v2/long_short?symbol=BTC&period=5m",
-         lambda d: float(d["data"][0]["longRatio"])/float(d["data"][0]["shortRatio"]) if d.get("data") else None),
-        # Bybit 1d period
-        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=1d&limit=1",
-         lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
-    ]
-    for url, parser in ls_sources:
-        try:
-            d = get(url)
-            val = parser(d)
-            if val and val > 0:
-                data["ls"] = round(val, 4)
-                print(f"L/S: {val:.4f} ✅")
-                break
-        except: pass
-
-    if "ls" not in data:
-        data["ls"] = 2.0
-        print("L/S: fallback 2.0")
+    # L/S: unavailable in Actions environment, removed
+    # FR is used as primary sentiment proxy instead
+    data["ls"] = None
 
     # ── DVOL ────────────────────────────────────────────────
     dvol_got = False
@@ -364,6 +327,138 @@ def fetch_all():
                 print(f"Opts {expiry}: 0 strikes（已到期或無數據）")
     except Exception as e:
         print(f"Options失敗: {e}")
+
+    # ── OPTIONS SKEW + GAMMA FLIP ──────────────────────────
+    spot = data.get("spot", 60000)
+    skew_results = {}
+    gamma_flip_results = {}
+
+    for expiry in expiries:
+        o = data.get("options", {}).get(expiry, {})
+        if not o:
+            continue
+
+        # ── Options Skew（25-delta skew）──────────────────
+        # Skew = Put IV(25delta) - Call IV(25delta)
+        # 正值=市場付premium買Put=偏空；負值=偏多
+        # 用最接近25 delta的行權價
+        sorted_strikes = sorted(o.keys())
+        put_ivs_25d = []
+        call_ivs_25d = []
+
+        for strike in sorted_strikes:
+            v = o[strike]
+            c_iv = float(v.get("call_iv", 0))
+            p_iv = float(v.get("put_oi", 0))  # 先用OI定位
+            call_oi = float(v.get("call_oi", 0))
+            put_oi_v = float(v.get("put_oi", 0))
+            c_iv_real = float(v.get("call_iv", 0))
+            p_iv_real = float(v.get("put_iv", 0)) if "put_iv" in v else 0
+
+            # 近似delta：strike vs spot的位置
+            # OTM Call delta ≈ 0.25 when strike ≈ spot * 1.10 (rough)
+            # OTM Put delta ≈ -0.25 when strike ≈ spot * 0.90
+            moneyness = strike / spot
+            if 0.88 <= moneyness <= 0.93 and p_iv_real > 0:  # ~25d Put
+                put_ivs_25d.append(p_iv_real)
+            if 1.07 <= moneyness <= 1.13 and c_iv_real > 0:  # ~25d Call
+                call_ivs_25d.append(c_iv_real)
+
+        if put_ivs_25d and call_ivs_25d:
+            skew = sum(put_ivs_25d)/len(put_ivs_25d) - sum(call_ivs_25d)/len(call_ivs_25d)
+            skew_results[expiry] = round(skew, 2)
+            direction = "BEARISH" if skew > 2 else ("BULLISH" if skew < -2 else "NEUTRAL")
+            print(f"Skew {expiry}: {skew:+.2f}% ({direction}) ✅")
+        else:
+            # fallback: ATM skew用最近ATM行權價的put/call IV差
+            atm_strikes = sorted(sorted_strikes, key=lambda x: abs(x - spot))[:3]
+            atm_skews = []
+            for s in atm_strikes:
+                v = o[s]
+                c_iv_r = float(v.get("call_iv", 0))
+                p_iv_r = float(v.get("put_iv", 0)) if "put_iv" in v else 0
+                if c_iv_r > 0 and p_iv_r > 0:
+                    atm_skews.append(p_iv_r - c_iv_r)
+            if atm_skews:
+                skew = sum(atm_skews)/len(atm_skews)
+                skew_results[expiry] = round(skew, 2)
+                print(f"Skew {expiry}: {skew:+.2f}% (ATM proxy) ✅")
+
+        # ── Gamma Flip 精確計算 ──────────────────────────
+        # GEX = sum(Call_OI * Gamma - Put_OI * Gamma) * spot^2 * 0.01
+        # Gamma Flip = 行權價使Net GEX = 0
+        # 用Black-Scholes近似Gamma（簡化版）
+        import math
+
+        def bs_gamma(S, K, T, sigma):
+            """Black-Scholes Gamma近似"""
+            if T <= 0 or sigma <= 0:
+                return 0
+            try:
+                d1 = (math.log(S/K) + 0.5 * sigma**2 * T) / (sigma * math.sqrt(T))
+                return math.exp(-0.5 * d1**2) / (S * sigma * math.sqrt(2 * math.pi * T))
+            except:
+                return 0
+
+        # 計算到期時間（簡化：用到期日名稱估算）
+        expiry_days = {"3JUL26": 6, "31JUL26": 34, "25SEP26": 90}
+        T = expiry_days.get(expiry, 30) / 365
+        dvol = data.get("dvol", 50) / 100
+
+        # 計算每個行權價的Net GEX
+        gex_by_strike = {}
+        for strike in sorted_strikes:
+            v = o[strike]
+            call_oi = float(v.get("call_oi", 0))
+            put_oi_v = float(v.get("put_oi", 0))
+            # 用各自的IV或DVOL
+            c_iv_r = float(v.get("call_iv", 0)) / 100 if v.get("call_iv") else dvol
+            p_iv_r = float(v.get("put_iv", 0)) / 100 if v.get("put_iv") else dvol
+            if c_iv_r == 0: c_iv_r = dvol
+            if p_iv_r == 0: p_iv_r = dvol
+
+            gamma_c = bs_gamma(spot, strike, T, c_iv_r)
+            gamma_p = bs_gamma(spot, strike, T, p_iv_r)
+
+            net_gex = (call_oi * gamma_c - put_oi_v * gamma_p) * spot * spot * 0.01
+            gex_by_strike[strike] = net_gex
+
+        # 累積GEX從高到低行權價
+        cumulative_gex = 0
+        gamma_flip = None
+        prev_strike = None
+        prev_cum = 0
+
+        for strike in sorted(gex_by_strike.keys(), reverse=True):
+            cumulative_gex += gex_by_strike[strike]
+            if prev_strike is not None and prev_cum * cumulative_gex < 0:
+                # 符號改變 = Gamma Flip在這兩個行權價之間
+                # 線性插值
+                weight = abs(prev_cum) / (abs(prev_cum) + abs(cumulative_gex))
+                gamma_flip = int(prev_strike + weight * (strike - prev_strike))
+                break
+            prev_strike = strike
+            prev_cum = cumulative_gex
+
+        if gamma_flip:
+            gamma_flip_results[expiry] = gamma_flip
+            regime = "POS" if spot > gamma_flip else "NEG"
+            print(f"Gamma Flip {expiry}: ${gamma_flip:,} | Regime: {regime} ({'Spot above' if regime=='POS' else 'Spot below'}) ✅")
+        else:
+            # fallback: 用最大Call OI行權價
+            max_call_strike = max(sorted_strikes, key=lambda x: o[x].get("call_oi", 0))
+            gamma_flip_results[expiry] = max_call_strike
+            print(f"Gamma Flip {expiry}: ${max_call_strike:,} (fallback max call OI)")
+
+    data["skew"] = skew_results
+    data["gamma_flip"] = gamma_flip_results
+
+    # 主到期日regime
+    main_expiry = expiries[0] if expiries else "3JUL26"
+    gf = gamma_flip_results.get(main_expiry, spot - 2000)
+    data["regime"] = "POS" if spot > gf else "NEG"
+    data["gamma_flip_main"] = gf
+    print(f"Main Regime: {data['regime']} (GF=${gf:,}, Spot=${spot:,.0f})")
 
     data["timestamp"] = datetime.now(timezone.utc).isoformat()
 
