@@ -17,7 +17,8 @@ def fetch_binance_spot():
         "https://fapi.binance.com/fapi/v1/ticker/price",
         params={"symbol": "BTCUSDT"}, timeout=10
     )
-    return float(r.json()["price"])
+    d = r.json()
+    return float(d.get("price") or d.get("markPrice") or d.get("lastPrice"))
 
 def fetch_binance_fr():
     """資金費率"""
@@ -25,8 +26,8 @@ def fetch_binance_fr():
         "https://fapi.binance.com/fapi/v1/premiumIndex",
         params={"symbol": "BTCUSDT"}, timeout=10
     )
-    data = r.json()
-    return float(data["lastFundingRate"])
+    d = r.json()
+    return float(d.get("lastFundingRate") or d.get("interestRate") or 0)
 
 def fetch_binance_oi():
     """持倉量（萬張）"""
@@ -34,15 +35,24 @@ def fetch_binance_oi():
         "https://fapi.binance.com/fapi/v1/openInterest",
         params={"symbol": "BTCUSDT"}, timeout=10
     )
-    return float(r.json()["openInterest"]) / 10000
+    d = r.json()
+    oi = d.get("openInterest") or d.get("sumOpenInterest") or 0
+    return float(oi) / 10000
 
 def fetch_binance_ls():
     """大戶多空比"""
-    r = requests.get(
-        "https://fapi.binance.com/futures/data/globalLongShortAccountRatio",
-        params={"symbol": "BTCUSDT", "period": "5m", "limit": 1}, timeout=10
-    )
-    return float(r.json()[0]["longShortRatio"])
+    try:
+        r = requests.get(
+            "https://fapi.binance.com/futures/data/globalLongShortAccountRatio",
+            params={"symbol": "BTCUSDT", "period": "5m", "limit": 1}, timeout=10
+        )
+        return float(r.json()[0]["longShortRatio"])
+    except:
+        r = requests.get(
+            "https://fapi.binance.com/futures/data/topLongShortAccountRatio",
+            params={"symbol": "BTCUSDT", "period": "5m", "limit": 1}, timeout=10
+        )
+        return float(r.json()[0]["longShortRatio"])
 
 def fetch_binance_klines(interval="4h", limit=100):
     """K線數據（用於計算EMA/MACD）"""
@@ -51,7 +61,17 @@ def fetch_binance_klines(interval="4h", limit=100):
         params={"symbol": "BTCUSDT", "interval": interval, "limit": limit},
         timeout=10
     )
-    closes = [float(k[4]) for k in r.json()]
+    data = r.json()
+    if isinstance(data, list) and len(data) > 0:
+        closes = [float(k[4]) for k in data]
+    else:
+        # fallback: spot market
+        r2 = requests.get(
+            "https://api.binance.com/api/v3/klines",
+            params={"symbol": "BTCUSDT", "interval": interval, "limit": limit},
+            timeout=10
+        )
+        closes = [float(k[4]) for k in r2.json()]
     return closes
 
 def calc_ema(prices, period):
