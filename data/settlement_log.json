@@ -1,0 +1,48 @@
+{
+  "records": [
+    {
+      "snapshot_num": 23,
+      "expiry": "3JUL26",
+      "timestamp": "2026-06-27T19:01:32.884435+00:00",
+      "predicted_median": 60676.06,
+      "predicted_mode": 60480.89,
+      "sigma": 4317.37,
+      "actual_settlement": null,
+      "components": {
+        "gbm": 24278.71,
+        "gex": 6048.09,
+        "behavior": 17007.18,
+        "bayesian": 7294.0,
+        "timedecay": 6048.09
+      },
+      "weights_used": {
+        "gbm": 0.4,
+        "gex": 0.1,
+        "behavior": 0.28,
+        "bayesian": 0.12,
+        "timedecay": 0.1
+      },
+      "signals": {
+        "fr": 0.0001,
+        "skew": 14.72,
+        "dvol": 51.54644,
+        "pcr_main": 1.0,
+        "macd_4h": 367.99,
+        "regime_pos": 1.0,
+        "gamma_flip": 56588.0,
+        "contradiction": 1.0
+      },
+      "error_sigma": null,
+      "error_usd": null
+    }
+  ],
+  "current_weights": {
+    "gbm": 0.4,
+    "gex": 0.1,
+    "behavior": 0.28,
+    "bayesian": 0.12,
+    "timedecay": 0.1
+  },
+  "weight_history": [],
+  "last_optimized": null
+}
