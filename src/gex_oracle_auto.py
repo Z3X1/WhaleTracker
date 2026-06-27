@@ -180,7 +180,7 @@ def collect_all_data():
     print(f"  OI: {data['oi']:.2f}萬")
 
     data["ls"] = fetch_binance_ls()
-    print(f"  L/S: {data['ls']:.4f}")
+    print(f"  L/S: {data.get('ls') or 'N/A'}")
 
     # MACD計算
     for tf, interval in [("15m", "15m"), ("4h", "4h"), ("1d", "1d")]:
@@ -409,7 +409,7 @@ def call_claude_collision(data, uft_result):
 - Spot: ${data['spot']:,.0f}
 - DVOL: {data['dvol']:.2f}%
 - FR: {data['fr']*100:+.5f}%（{'正值，Longs pay' if data['fr']>0 else '負值，Shorts pay'}）
-- L/S: {data['ls']:.4f}
+- L/S: {data.get('ls') or 'N/A'}
 - OI: {data['oi']:.2f}萬
 
 MACD（15min）: DIF={macd_15['dif']:.2f}, DEA={macd_15['dea']:.2f}, MACD={macd_15['macd']:.2f}
@@ -727,7 +727,7 @@ def send_telegram(data, uft_result, collision, snapshot_num):
     msg = f"""⚡ *GEX Oracle S{snapshot_num}* 自動更新
 
 💰 Spot: `${spot:,.0f}`
-📊 FR: `{fr_pct:+.5f}%` | L/S: `{data['ls']:.4f}` | OI: `{data['oi']:.2f}萬`
+📊 FR: `{fr_pct:+.5f}%` | L/S: `{data.get('ls') or 'N/A'}` | OI: `{data['oi']:.2f}萬`
 
 🎯 UFT Median: `${uft_med:,.0f}`
 ⚔️ Oracle: `{oracle}`
@@ -824,7 +824,7 @@ def main():
             data = json.load(f)
         print(f"  Spot: ${data.get('spot', 0):,.0f}")
         print(f"  FR: {data.get('fr', 0)*100:+.5f}%")
-        print(f"  L/S: {data.get('ls', 0):.4f}")
+        print(f"  L/S: {data.get('ls') or 'N/A'}")
         print(f"  DVOL: {data.get('dvol', 46):.2f}%")
         # 格式標準化：將 data["macd"]["4h"] 轉為 data["macd_4h"]
         if "macd" in data and isinstance(data["macd"], dict):
