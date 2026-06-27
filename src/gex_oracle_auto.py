@@ -716,6 +716,17 @@ def main():
         print(f"  FR: {data.get('fr', 0)*100:+.5f}%")
         print(f"  L/S: {data.get('ls', 0):.4f}")
         print(f"  DVOL: {data.get('dvol', 46):.2f}%")
+        # 格式標準化：將 data["macd"]["4h"] 轉為 data["macd_4h"]
+        if "macd" in data and isinstance(data["macd"], dict):
+            for tf_key, tf_new in [("15m","15m"), ("4h","4h"), ("1d","1d")]:
+                if tf_key in data["macd"]:
+                    data[f"macd_{tf_new}"] = data["macd"][tf_key]
+            for tf_key, tf_new in [("15m","15m"), ("4h","4h"), ("1d","1d")]:
+                if tf_key in data.get("ema", {}):
+                    data[f"ema_{tf_new}"] = data["ema"][tf_key]
+        # 確保spot存在
+        if not data.get("spot") or data["spot"] == 0:
+            data["spot"] = 60000
     else:
         print("📡 開始即時抓取數據...")
         data = collect_all_data()
