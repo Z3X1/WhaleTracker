@@ -452,64 +452,95 @@ UFT計算結果：
 # ============================================================
 
 def generate_html(data, uft_result, collision, snapshot_num):
-    spot = data.get("spot", 0)
-    fr = data.get("fr", 0) * 100
-    oi = data.get("oi", 0)
-    ls = data.get("ls", 0)
-    dvol = data.get("dvol", 0)
-    ts = data.get("timestamp", "")[:16].replace("T", " ")
-    expiries = data.get("expiries", ["3JUL26", "31JUL26", "25SEP26"])
+    import math, json as _json
 
-    uft_med = uft_result.get("uft_median", spot)
-    uft_mode = uft_result.get("uft_mode", spot)
-    sigma = uft_result.get("sigma", 0)
-    contradiction = uft_result.get("behavior_contradiction", False)
-    pcr = uft_result.get("gex", {}).get("pcr", 1.0)
-    comps = uft_result.get("components", {})
+    spot    = float(data.get("spot") or 0)
+    fr      = float(data.get("fr") or 0) * 100
+    oi      = float(data.get("oi") or 0)
+    ls      = float(data.get("ls") or 0)
+    dvol    = float(data.get("dvol") or 0)
+    ts      = str(data.get("timestamp",""))[:16].replace("T"," ")
+    expiries = data.get("expiries", ["3JUL26","31JUL26","25SEP26"])
 
-    m15 = data.get("macd_15m", data.get("macd", {}).get("15m", {}))
-    m4h = data.get("macd_4h", data.get("macd", {}).get("4h", {}))
-    m1d = data.get("macd_1d", data.get("macd", {}).get("1d", {}))
+    uft_med  = float(uft_result.get("uft_median") or spot)
+    uft_mode = float(uft_result.get("uft_mode") or spot)
+    sigma    = float(uft_result.get("sigma") or 0)
+    contra   = bool(uft_result.get("behavior_contradiction", False))
+    comps    = uft_result.get("components", {})
+    gex      = uft_result.get("gex", {})
+    pcr_main = float(gex.get("pcr") or 1.0)
 
-    def macd_status(m):
-        dif = m.get("dif", 0)
-        dea = m.get("dea", 0)
-        macd_val = m.get("macd", 0)
-        status = "BULL X" if dif > dea else "BEAR X"
-        color = "#10b981" if dif > dea else "#ef4444"
-        return status, color, dif, dea, macd_val
+    def mstat(key_flat, key_nested):
+        m = data.get(key_flat) or data.get("macd",{}).get(key_nested,{})
+        dif = float(m.get("dif",0)); dea = float(m.get("dea",0)); mac = float(m.get("macd",0))
+        bull = dif > dea
+        col = "#10b981" if bull else "#ef4444"
+        sig = "BULL X" if bull else "BEAR X"
+        return sig, col, dif, dea, mac
 
-    s15, c15, dif15, dea15, mac15 = macd_status(m15)
-    s4h, c4h, dif4h, dea4h, mac4h = macd_status(m4h)
-    s1d, c1d, dif1d, dea1d, mac1d = macd_status(m1d)
+    s15,c15,d15,e15,m15 = mstat("macd_15m","15m")
+    s4h,c4h,d4h,e4h,m4h = mstat("macd_4h","4h")
+    s1d,c1d,d1d,e1d,m1d = mstat("macd_1d","1d")
 
-    fr_color = "#10b981" if fr > 0 else "#ef4444"
+    fr_col  = "#10b981" if fr >= 0 else "#ef4444"
     fr_sign = "+" if fr >= 0 else ""
-    r15_text = "Rule#15 CLEARED - Signal consistent, full weight" if not contradiction else "Rule#15 TRIGGERED - Contradictory signal, x0.5 weight"
-    r15_color = "#10b981" if not contradiction else "#f59e0b"
 
-    oracle_txt = "N/A"
-    insight_txt = "Claude API not configured"
-    if collision:
-        oracle_txt = collision.get("oracle_verdict", "N/A")
-        insight_txt = collision.get("key_insight", "")
+    r15_txt = "Rule#15 CLEARED - Signal consistent, full weight" if not contra else "Rule#15 TRIGGERED - Contradictory signal, x0.5 weight"
+    r15_col = "#10b981" if not contra else "#f59e0b"
 
-    exp0 = expiries[0] if len(expiries) > 0 else "N/A"
-    exp1 = expiries[1] if len(expiries) > 1 else "N/A"
-    exp2 = expiries[2] if len(expiries) > 2 else "N/A"
+    oracle_txt  = collision.get("oracle_verdict","N/A") if collision else "N/A"
+    insight_txt = collision.get("key_insight","Claude API not configured") if collision else "Claude API not configured"
+    next_trig   = collision.get("next_trigger","") if collision else ""
 
-    opts = data.get("options", {})
-    def pcr_for(exp):
-        o = opts.get(exp, {})
-        if not o:
-            return 0, 0, 0
-        tc = sum(v.get("call_oi", 0) for v in o.values())
-        tp = sum(v.get("put_oi", 0) for v in o.values())
-        return tc, tp, round(tp/tc, 3) if tc > 0 else 0
+    exp0 = expiries[0] if len(expiries)>0 else "N/A"
+    exp1 = expiries[1] if len(expiries)>1 else "N/A"
+    exp2 = expiries[2] if len(expiries)>2 else "N/A"
 
-    c0, p0, pcr0 = pcr_for(exp0)
-    c1, p1, pcr1 = pcr_for(exp1)
-    c2, p2, pcr2 = pcr_for(exp2)
+    opts = data.get("options",{})
+    def opt_stats(exp):
+        o = opts.get(exp,{})
+        if not o: return 0,0,0,0,0
+        tc = sum(float(v.get("call_oi",0)) for v in o.values())
+        tp = sum(float(v.get("put_oi",0)) for v in o.values())
+        pcr = round(tp/tc,3) if tc>0 else 0
+        max_call = max(o.items(), key=lambda x: x[1].get("call_oi",0), default=(0,{}))
+        max_put  = max(o.items(), key=lambda x: x[1].get("put_oi",0), default=(0,{}))
+        return tc, tp, pcr, int(max_call[0]), int(max_put[0])
+
+    tc0,tp0,pcr0,cw0,pw0 = opt_stats(exp0)
+    tc1,tp1,pcr1,cw1,pw1 = opt_stats(exp1)
+    tc2,tp2,pcr2,cw2,pw2 = opt_stats(exp2)
+
+    # Scenario probabilities (UFT-based)
+    if sigma > 0:
+        # P(>+1sigma), P(+0.5 to +1), P(-0.5 to +0.5), P(-1 to -0.5), P(<-1)
+        import math
+        def norm_cdf(x):
+            return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+        center = uft_med
+        p_A = round((1 - norm_cdf((center+sigma*0.5 - spot)/sigma))*100, 1)   # >+0.5s
+        p_B = round((norm_cdf((center+sigma*0.5 - spot)/sigma) - norm_cdf((center-sigma*0.5 - spot)/sigma))*100, 1)  # core
+        p_C = round((norm_cdf((center-sigma*0.5 - spot)/sigma) - norm_cdf((center-sigma - spot)/sigma))*100, 1)
+        p_D = round(norm_cdf((center-sigma - spot)/sigma)*100, 1)
+    else:
+        p_A,p_B,p_C,p_D = 20,50,20,10
+
+    # Top 5 strikes by OI for main expiry
+    strike_rows = ""
+    o0 = opts.get(exp0,{})
+    if o0:
+        top5 = sorted(o0.items(), key=lambda x: x[1].get("call_oi",0)+x[1].get("put_oi",0), reverse=True)[:8]
+        for strike, v in sorted(top5, key=lambda x: x[0]):
+            c_oi = float(v.get("call_oi",0))
+            p_oi = float(v.get("put_oi",0))
+            pcr_s = round(p_oi/c_oi,2) if c_oi>0 else 0
+            atm = " style=\"background:rgba(59,130,246,.08)\"" if abs(int(strike)-spot)<1500 else ""
+            strike_rows += f"<tr{atm}><td>${int(strike):,}</td><td>{c_oi:.0f}</td><td>{p_oi:.0f}</td><td>{pcr_s}</td></tr>"
+
+    # UFT weights display
+    weights = data.get("uft_weights", {"gbm":0.40,"gex":0.10,"behavior":0.28,"bayesian":0.12,"timedecay":0.10})
+    beh_w = weights.get("behavior",0.28)
+    if contra: beh_w = beh_w * 0.5
 
     html = """<!DOCTYPE html>
 <html lang="en">
@@ -517,94 +548,128 @@ def generate_html(data, uft_result, collision, snapshot_num):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="google" content="notranslate">
-<meta http-equiv="refresh" content="21600">
 <title>GEX Oracle S""" + str(snapshot_num) + """</title>
 <style>
-:root{--bg:#0a0e17;--panel:#111827;--border:#1e293b;--accent:#3b82f6;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--text:#e2e8f0;--muted:#64748b}
+:root{--bg:#0a0e17;--panel:#111827;--border:#1e293b;--acc:#3b82f6;--green:#10b981;--red:#ef4444;--yel:#f59e0b;--pur:#8b5cf6;--cyan:#06b6d4;--txt:#e2e8f0;--mut:#64748b}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:Consolas,monospace;font-size:12px}
-.hdr{background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:2px solid var(--accent);padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
-.hdr-title{font-size:18px;color:var(--accent);letter-spacing:3px;font-weight:bold}
-.hdr-sub{color:var(--muted);font-size:10px;margin-top:3px}
-.spot{font-size:26px;font-weight:bold;color:var(--yellow)}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 14px 14px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px}
-.ct{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:5px}
-.kpi{text-align:center;padding:8px}
-.kv{font-size:20px;font-weight:bold}
-.kl{font-size:9px;color:var(--muted);margin-top:3px;letter-spacing:1px}
-.alert{border-radius:6px;padding:8px 12px;margin:0 14px 10px;font-size:11px}
-.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px}
+body{background:var(--bg);color:var(--txt);font-family:Consolas,monospace;font-size:12px}
+.hdr{background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:2px solid var(--acc);padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-start}
+.ht{font-size:16px;color:var(--acc);letter-spacing:2px;font-weight:bold}
+.hs{color:var(--mut);font-size:10px;margin-top:2px}
+.spot{font-size:24px;font-weight:bold;color:var(--yel)}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 10px 10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:0 10px 10px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px}
+.ct{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.kv{font-size:18px;font-weight:bold;text-align:center;padding:6px 0}
+.kl{font-size:9px;color:var(--mut);text-align:center;letter-spacing:1px}
+.al{border-radius:5px;padding:7px 10px;margin:0 10px 8px;font-size:11px}
+.row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:10px}
 .row:last-child{border-bottom:none}
-.big{font-size:22px;font-weight:bold;color:var(--yellow);text-align:center;padding:8px 0}
-.muted{color:var(--muted);font-size:10px;text-align:center}
-.foot{text-align:center;padding:10px;color:var(--muted);font-size:10px}
+.big{font-size:20px;font-weight:bold;color:var(--yel);text-align:center;padding:6px 0}
+.sm{color:var(--mut);font-size:9px;text-align:center}
+.pb{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin:3px 0}
+.pf{height:100%;border-radius:4px}
+table{width:100%;border-collapse:collapse;font-size:10px}
+th{color:var(--mut);text-align:right;padding:3px 5px;font-size:9px;border-bottom:1px solid var(--border)}
+th:first-child{text-align:center}
+td{padding:3px 5px;text-align:right;border-bottom:1px solid rgba(30,41,59,.5)}
+td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
+.foot{text-align:center;padding:8px;color:var(--mut);font-size:9px}
 </style>
 </head>
 <body>
+
 <div class="hdr">
   <div>
-    <div class="hdr-title">GEX ORACLE AUTO S""" + str(snapshot_num) + """</div>
-    <div class="hdr-sub">UFT v2.0 | """ + ts + """ UTC | Auto every 6h</div>
+    <div class="ht">GEX ORACLE AUTO S""" + str(snapshot_num) + """</div>
+    <div class="hs">UFT v2.0 | """ + ts + """ UTC | 6h auto</div>
   </div>
   <div style="text-align:right">
-    <div style="font-size:10px;color:var(--muted)">BTC/USDT PERP</div>
+    <div style="font-size:9px;color:var(--mut)">BTC/USDT PERP</div>
     <div class="spot">$""" + f"{spot:,.0f}" + """</div>
-    <div style="font-size:10px;color:""" + fr_color + """">FR """ + fr_sign + f"{fr:.5f}" + """% | DVOL """ + f"{dvol:.2f}" + """%</div>
+    <div style="font-size:10px;color:""" + fr_col + """">FR """ + fr_sign + f"{fr:.5f}" + """% | DVOL """ + f"{dvol:.2f}" + """%</div>
   </div>
 </div>
 
-<div class="alert" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);margin-top:10px">
-  Oracle: <strong>""" + oracle_txt + """</strong> | sigma(""" + exp0 + """)=$""" + f"{sigma:,.0f}" + """ | UFT Median=$""" + f"{uft_med:,.0f}" + """
+<div class="al" style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);margin-top:8px">
+  Oracle: <strong>""" + oracle_txt + """</strong> | sigma=""" + f"${sigma:,.0f}" + """ | UFT Median=<strong>$""" + f"{uft_med:,.0f}" + """</strong>
 </div>
-<div class="alert" style="background:rgba(245,158,11,.1);border:1px solid """ + r15_color + """">
-  """ + r15_text + """
-</div>
-
-<div class="grid4">
-  <div class="card kpi"><div class="kv" style="color:var(--yellow)">$""" + f"{spot:,.0f}" + """</div><div class="kl">SPOT</div></div>
-  <div class="card kpi"><div class="kv" style="color:""" + fr_color + """">""" + fr_sign + f"{fr:.5f}" + """%</div><div class="kl">FUNDING RATE</div></div>
-  <div class="card kpi"><div class="kv" style="color:#a78bfa">""" + f"{ls:.4f}" + """</div><div class="kl">LONG/SHORT</div></div>
-  <div class="card kpi"><div class="kv" style="color:var(--muted)">""" + f"{oi:.2f}" + """w</div><div class="kl">OPEN INTEREST</div></div>
+<div class="al" style="background:rgba(245,158,11,.08);border:1px solid """ + r15_col + """">
+  """ + r15_txt + """
 </div>
 
-<div class="grid2">
-  <div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="ct">MACD (3 Timeframes)</div>
-      <div class="row"><span style="color:#06b6d4">15min (30%)</span><span style="color:""" + c15 + """">""" + s15 + " " + f"{mac15:+.2f}" + """</span><span style="color:var(--muted)">DIF """ + f"{dif15:+.1f}" + """</span></div>
-      <div class="row"><span style="color:#06b6d4">4h (62%)</span><span style="color:""" + c4h + """">""" + s4h + " " + f"{mac4h:+.2f}" + """</span><span style="color:var(--muted)">DIF """ + f"{dif4h:+.1f}" + """</span></div>
-      <div class="row"><span style="color:#06b6d4">1D (70%)</span><span style="color:""" + c1d + """">""" + s1d + " " + f"{mac1d:+.2f}" + """</span><span style="color:var(--muted)">DIF """ + f"{dif1d:+.1f}" + """</span></div>
-    </div>
-    <div class="card">
-      <div class="ct">GEX Structure</div>
-      <div class="row"><span>GEX Pin (""" + exp0 + """)</span><span style="color:var(--yellow)">$""" + f"{uft_mode:,.0f}" + """</span></div>
-      <div class="row"><span>PCR (""" + exp0 + """)</span><span>""" + f"{pcr0:.3f}" + """</span></div>
-      <div class="row"><span>PCR (""" + exp1 + """)</span><span>""" + f"{pcr1:.3f}" + """</span></div>
-      <div class="row"><span>PCR (""" + exp2 + """)</span><span>""" + f"{pcr2:.3f}" + """</span></div>
-      <div class="row"><span>Spot vs Pin</span><span style="color:var(--yellow)">""" + f"{spot - uft_mode:+,.0f}" + """</span></div>
-    </div>
+<div class="g4">
+  <div class="card"><div class="kv" style="color:var(--yel)">$""" + f"{spot:,.0f}" + """</div><div class="kl">SPOT</div></div>
+  <div class="card"><div class="kv" style="color:""" + fr_col + """">""" + fr_sign + f"{fr:.5f}" + """%</div><div class="kl">FUNDING RATE</div></div>
+  <div class="card"><div class="kv" style="color:var(--pur)">""" + f"{ls:.4f}" + """</div><div class="kl">LONG / SHORT</div></div>
+  <div class="card"><div class="kv" style="color:var(--mut)">""" + f"{oi:.2f}" + """w</div><div class="kl">OPEN INTEREST</div></div>
+</div>
+
+<div class="g3">
+  <div class="card">
+    <div class="ct">MACD (3 Timeframes)</div>
+    <div class="row"><span style="color:var(--cyan)">15m (30%)</span><span style="color:""" + c15 + """">""" + s15 + """ """ + f"{m15:+.2f}" + """</span><span style="color:var(--mut)">""" + f"{d15:+.0f}" + """</span></div>
+    <div class="row"><span style="color:var(--cyan)">4h (62%)</span><span style="color:""" + c4h + """">""" + s4h + """ """ + f"{m4h:+.2f}" + """</span><span style="color:var(--mut)">""" + f"{d4h:+.0f}" + """</span></div>
+    <div class="row"><span style="color:var(--cyan)">1D (70%)</span><span style="color:""" + c1d + """">""" + s1d + """ """ + f"{m1d:+.2f}" + """</span><span style="color:var(--mut)">""" + f"{d1d:+.0f}" + """</span></div>
   </div>
+
+  <div class="card">
+    <div class="ct">UFT v2.0 Equation</div>
+    <div class="row"><span>GBM (x""" + f"{weights.get('gbm',0.40):.2f}" + """)</span><span>$""" + f"{comps.get('gbm',0):,.0f}" + """</span></div>
+    <div class="row"><span>GEX (x""" + f"{weights.get('gex',0.10):.2f}" + """)</span><span>$""" + f"{comps.get('gex',0):,.0f}" + """</span></div>
+    <div class="row"><span>Behavior (x""" + f"{beh_w:.2f}" + """)</span><span>$""" + f"{comps.get('behavior',0):,.0f}" + """</span></div>
+    <div class="row"><span>Bayesian (x""" + f"{weights.get('bayesian',0.12):.2f}" + """)</span><span>$""" + f"{comps.get('bayesian',0):,.0f}" + """</span></div>
+    <div class="row"><span>TimeDecay (x""" + f"{weights.get('timedecay',0.10):.2f}" + """)</span><span>$""" + f"{comps.get('timedecay',0):,.0f}" + """</span></div>
+    <div class="big">$""" + f"{uft_med:,.0f}" + """</div>
+    <div class="sm">Mode=$""" + f"{uft_mode:,.0f}" + """ | EMH=$""" + f"{spot:,.0f}" + """</div>
+  </div>
+
+  <div class="card">
+    <div class="ct">Scenario Probability (""" + exp0 + """)</div>
+    <div style="font-size:10px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="color:var(--green)">A: Bounce &gt;+0.5s</span><span style="color:var(--green)">""" + f"{p_A}" + """%</span></div>
+    <div class="pb"><div class="pf" style="width:""" + f"{min(p_A,100)}" + """%;background:var(--green)"></div></div>
+    <div style="font-size:10px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="color:var(--yel)">B: Core range</span><span style="color:var(--yel)">""" + f"{p_B}" + """%</span></div>
+    <div class="pb"><div class="pf" style="width:""" + f"{min(p_B,100)}" + """%;background:var(--yel)"></div></div>
+    <div style="font-size:10px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="color:var(--red)">C: Put Wall test</span><span style="color:var(--red)">""" + f"{p_C}" + """%</span></div>
+    <div class="pb"><div class="pf" style="width:""" + f"{min(p_C,100)}" + """%;background:var(--red)"></div></div>
+    <div style="font-size:10px;margin-bottom:4px;display:flex;justify-content:space-between"><span style="color:var(--red)">D: Tail &lt;-1s</span><span style="color:var(--red)">""" + f"{p_D}" + """%</span></div>
+    <div class="pb"><div class="pf" style="width:""" + f"{min(p_D,100)}" + """%;background:#7f1d1d"></div></div>
+  </div>
+</div>
+
+<div class="g2">
+  <div class="card">
+    <div class="ct">GEX Structure (Cross-Expiry)</div>
+    <div class="row"><span>GEX Pin (""" + exp0 + """)</span><span style="color:var(--yel)">$""" + f"{uft_mode:,.0f}" + """</span></div>
+    <div class="row"><span>Spot vs Pin</span><span style="color:var(--yel)">""" + f"{spot-uft_mode:+,.0f}" + """</span></div>
+    <div class="row"><span>PCR """ + exp0 + """ (Call """ + f"{tc0:.0f}" + """ / Put """ + f"{tp0:.0f}" + """)</span><span>""" + f"{pcr0:.3f}" + """</span></div>
+    <div class="row"><span>PCR """ + exp1 + """ (Call """ + f"{tc1:.0f}" + """ / Put """ + f"{tp1:.0f}" + """)</span><span>""" + f"{pcr1:.3f}" + """</span></div>
+    <div class="row"><span>PCR """ + exp2 + """ (Call """ + f"{tc2:.0f}" + """ / Put """ + f"{tp2:.0f}" + """)</span><span>""" + f"{pcr2:.3f}" + """</span></div>
+    <div class="row"><span>Call Wall """ + exp0 + """</span><span style="color:var(--green)">$""" + f"{cw0:,}" + """</span></div>
+    <div class="row"><span>Put Wall """ + exp0 + """</span><span style="color:var(--red)">$""" + f"{pw0:,}" + """</span></div>
+    <div class="row"><span>Call Wall """ + exp1 + """</span><span style="color:var(--green)">$""" + f"{cw1:,}" + """</span></div>
+    <div class="row"><span>Put Wall """ + exp1 + """</span><span style="color:var(--red)">$""" + f"{pw1:,}" + """</span></div>
+  </div>
+
   <div>
-    <div class="card" style="margin-bottom:12px">
-      <div class="ct">UFT v2.0 Equation</div>
-      <div class="row"><span>GBM (x0.40)</span><span>$""" + f"{comps.get('gbm', 0):,.0f}" + """</span></div>
-      <div class="row"><span>GEX (x0.10)</span><span>$""" + f"{comps.get('gex', 0):,.0f}" + """</span></div>
-      <div class="row"><span>Behavior (x0.28""" + ("x0.5" if contradiction else "") + """)</span><span>$""" + f"{comps.get('behavior', 0):,.0f}" + """</span></div>
-      <div class="row"><span>Bayesian (x0.12)</span><span>$""" + f"{comps.get('bayesian', 0):,.0f}" + """</span></div>
-      <div class="row"><span>TimeDecay (x0.10)</span><span>$""" + f"{comps.get('timedecay', 0):,.0f}" + """</span></div>
-      <div class="big">$""" + f"{uft_med:,.0f}" + """</div>
-      <div class="muted">Mode=$""" + f"{uft_mode:,.0f}" + """ | EMH=$""" + f"{spot:,.0f}" + """</div>
+    <div class="card" style="margin-bottom:10px">
+      <div class="ct">Options Chain """ + exp0 + """ (Top Strikes by OI)</div>
+      <table>
+        <thead><tr><th>Strike</th><th>Call OI</th><th>Put OI</th><th>PCR</th></tr></thead>
+        <tbody>""" + strike_rows + """</tbody>
+      </table>
     </div>
-    <div class="card" style="border-color:var(--accent)">
+    <div class="card" style="border-color:var(--acc)">
       <div class="ct">Oracle Insight</div>
-      <div style="font-size:10px;line-height:1.7;color:var(--text)">""" + insight_txt + """</div>
+      <div style="font-size:10px;line-height:1.7">""" + insight_txt + """</div>
+      """ + (f'<div style="font-size:9px;color:var(--cyan);margin-top:6px">Next trigger: {next_trig}</div>' if next_trig else "") + """
     </div>
   </div>
 </div>
 
-<div class="foot">GEX Oracle v2.0 | S""" + str(snapshot_num) + """ | Updates every 6h | Not investment advice</div>
+<div class="foot">GEX Oracle v2.0 | S""" + str(snapshot_num) + """ | 6h auto | Not investment advice</div>
 </body>
 </html>"""
 
