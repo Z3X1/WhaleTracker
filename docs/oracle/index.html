@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEX Oracle S23 | 2026-06-26 23:19</title>
+<style>
+:root{--bg:#0a0e17;--panel:#111827;--border:#1e293b;--accent:#3b82f6;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--purple:#8b5cf6;--cyan:#06b6d4;--text:#e2e8f0;--muted:#64748b;--orange:#f97316}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono','Consolas',monospace;font-size:12px}
+.header{background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:2px solid var(--accent);padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:18px;color:var(--accent);letter-spacing:2px}
+.header p{color:var(--muted);font-size:10px;margin-top:2px}
+.spot-price{font-size:26px;color:var(--green);font-weight:bold}
+.tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:9px 14px;cursor:pointer;white-space:nowrap;color:var(--muted);border-bottom:2px solid transparent;font-size:11px}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(59,130,246,.05)}
+.tab-content{display:none;padding:14px}
+.tab-content.active{display:block}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px}
+.card-title{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:5px}
+.kpi{text-align:center;padding:10px}
+.kpi-val{font-size:20px;font-weight:bold}
+.kpi-lbl{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:1px}
+.kpi-delta{font-size:10px;margin-top:3px}
+.bull{color:var(--green)}.bear{color:var(--red)}.neutral{color:var(--yellow)}.info{color:var(--cyan)}.purple{color:var(--purple)}
+.alert{border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:11px;display:flex;align-items:center;gap:8px}
+.alert-critical{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4)}
+.alert-warning{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4)}
+.alert-bull{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4)}
+.alert-info{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4)}
+.prob-bar-container{margin:5px 0}
+.prob-label{display:flex;justify-content:space-between;margin-bottom:2px}
+.prob-label span{font-size:10px}
+.prob-bar{height:10px;background:var(--border);border-radius:5px;overflow:hidden}
+.prob-fill{height:100%;border-radius:5px}
+.fill-green{background:linear-gradient(90deg,#059669,#10b981)}
+.fill-red{background:linear-gradient(90deg,#b91c1c,#ef4444)}
+.fill-yellow{background:linear-gradient(90deg,#b45309,#f59e0b)}
+.fill-blue{background:linear-gradient(90deg,#1d4ed8,#3b82f6)}
+.collision-layer{border:1px solid var(--border);border-radius:6px;margin-bottom:10px;overflow:hidden}
+.layer-header{background:rgba(59,130,246,.1);padding:7px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+.layer-title{color:var(--accent);font-size:11px;font-weight:bold}
+.layer-body{padding:10px 12px}
+.arg-row{display:flex;gap:8px;margin-bottom:6px}
+.arg-tag{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:bold;white-space:nowrap;min-width:40px;text-align:center}
+.bull-tag{background:rgba(16,185,129,.2);color:var(--green)}
+.bear-tag{background:rgba(239,68,68,.2);color:var(--red)}
+.arg-text{color:var(--text);font-size:10px;line-height:1.5;flex:1}
+hr{border:none;border-top:1px solid var(--border);margin:8px 0}
+.settlement-box{background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(139,92,246,.1));border:2px solid var(--accent);border-radius:10px;padding:14px;text-align:center}
+.settlement-main{font-size:30px;font-weight:bold;color:var(--yellow)}
+.delta-badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:bold;margin-left:6px}
+.delta-up{background:rgba(16,185,129,.2);color:var(--green)}
+.delta-down{background:rgba(239,68,68,.2);color:var(--red)}
+.ema-row{display:flex;justify-content:space-between;padding:4px 8px;border-radius:4px;margin-bottom:3px}
+.ema-above{background:rgba(16,185,129,.08)}
+.ema-below{background:rgba(239,68,68,.08)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>⚡ GEX ORACLE — S23</h1>
+    <p>UFT v2.0 ｜ 6h時間強制更新 ｜ 2026-06-26 23:19 UTC+8</p>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:10px;color:var(--muted)">BTC/USDT 永續</div>
+    <div class="spot-price">$59,910</div>
+    <div style="font-size:10px;color:var(--green)">▲ +1.11% ｜ DVOL 46.24%</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('overview')">📊 S23總覽</div>
+  <div class="tab" onclick="showTab('collision')">⚔️ 碰撞</div>
+  <div class="tab" onclick="showTab('technical')">📈 技術</div>
+  <div class="tab" onclick="showTab('settlement')">🏆 預測</div>
+</div>
+
+<!-- OVERVIEW -->
+<div id="tab-overview" class="tab-content active">
+
+  <div class="alert alert-bull">
+    <span>🟢</span>
+    <span><strong>Rule#15解除：</strong>FR+0.00634% + L/S 2.2240（↑+8.8%）方向一致，BehaviorSignal恢復全權重。空頭退場信號。</span>
+  </div>
+  <div class="alert alert-critical">
+    <span>🔴</span>
+    <span><strong>1D MACD死叉確認：</strong>S22金叉(+28.39)→S23死叉(-10.86)。可靠性70%的中期空頭信號，壓制所有短期多頭動能。</span>
+  </div>
+  <div class="alert alert-info">
+    <span>ℹ️</span>
+    <span><strong>26JUN26結算後第一夜：</strong>期權真空期，波動率下降（DVOL 46.74→46.24），夜盤低量穩定反彈結構。</span>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:12px">
+    <div class="card kpi">
+      <div class="kpi-val neutral">$59,910</div>
+      <div class="kpi-lbl">SPOT</div>
+      <div class="kpi-delta bear">▼ $316 vs S22</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-val bull">+0.00634%</div>
+      <div class="kpi-lbl">FR</div>
+      <div class="kpi-delta bull">▲ 持續上升</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-val bull">2.2240</div>
+      <div class="kpi-lbl">L/S 比率</div>
+      <div class="kpi-delta bull">▲ +0.180 (+8.8%)</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-val bear">10.39萬</div>
+      <div class="kpi-lbl">OI</div>
+      <div class="kpi-delta bull">▼ -0.27萬（空頭退場）</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-title">🔄 S22→S23 核心變化矩陣</div>
+        <table style="width:100%;border-collapse:collapse;font-size:10px">
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="color:var(--muted);padding:4px">指標</td>
+            <td style="color:var(--muted)">S22</td>
+            <td style="color:var(--muted)">S23</td>
+            <td style="color:var(--muted)">解讀</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(30,41,59,.5)">
+            <td style="padding:5px 4px">Spot</td>
+            <td>$60,226</td>
+            <td class="neutral">$59,910</td>
+            <td class="bear">▼ $316</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(30,41,59,.5)">
+            <td style="padding:5px 4px">FR</td>
+            <td>+0.00444%</td>
+            <td class="bull">+0.00634%</td>
+            <td class="bull">多頭意願↑</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(30,41,59,.5);background:rgba(16,185,129,.05)">
+            <td style="padding:5px 4px"><strong>L/S</strong></td>
+            <td>2.0440</td>
+            <td class="bull"><strong>2.2240</strong></td>
+            <td class="bull"><strong>+8.8%★</strong></td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(30,41,59,.5)">
+            <td style="padding:5px 4px">OI</td>
+            <td>10.66萬</td>
+            <td class="bull">10.39萬</td>
+            <td class="bull">空頭退場</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(30,41,59,.5)">
+            <td style="padding:5px 4px">DVOL</td>
+            <td>46.74%</td>
+            <td class="bull">46.24%</td>
+            <td class="bull">恐慌降溫</td>
+          </tr>
+          <tr style="background:rgba(239,68,68,.05)">
+            <td style="padding:5px 4px"><strong>1D MACD</strong></td>
+            <td>+28.39</td>
+            <td class="bear"><strong>-10.86</strong></td>
+            <td class="bear"><strong>死叉★</strong></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚡ 行為信號解讀（Rule#15 解除後）</div>
+        <div style="font-size:10px;line-height:1.9">
+          <div style="padding:6px;background:rgba(16,185,129,.08);border-radius:4px;margin-bottom:6px;border-left:3px solid var(--green)">
+            <strong class="bull">FR正 + L/S同升 = 方向一致</strong><br>
+            S22的矛盾（FR正但L/S跌）已解除。<br>
+            空頭（OI-2,700張）在退場，多頭帳戶比例上升。<br>
+            BehaviorSignal恢復28%全權重，方向轉多偏。
+          </div>
+          <div style="padding:6px;background:rgba(239,68,68,.08);border-radius:4px;border-left:3px solid var(--red)">
+            <strong class="bear">但1D死叉是警鐘</strong><br>
+            可靠性70%的中期信號確認熊市延續。<br>
+            行為信號是「誰在買賣」，MACD是「結構走向哪裡」。<br>
+            短期多，中期空——兩者同時成立。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-title">🎯 Oracle綜合裁決 S23</div>
+        <div class="grid-2" style="gap:6px;margin-bottom:8px">
+          <div style="padding:8px;background:rgba(16,185,129,.08);border-radius:4px;text-align:center">
+            <div class="bull" style="font-size:16px;font-weight:bold">BULL 0.60</div>
+            <div style="font-size:9px;color:var(--muted)">L1 行為信號</div>
+          </div>
+          <div style="padding:8px;background:rgba(239,68,68,.08);border-radius:4px;text-align:center">
+            <div class="bear" style="font-size:16px;font-weight:bold">BEAR 0.55</div>
+            <div style="font-size:9px;color:var(--muted)">L2 MACD結構</div>
+          </div>
+          <div style="padding:8px;background:rgba(245,158,11,.08);border-radius:4px;text-align:center">
+            <div class="neutral" style="font-size:16px;font-weight:bold">中性 0.50</div>
+            <div style="font-size:9px;color:var(--muted)">L3 GEX位置</div>
+          </div>
+          <div style="padding:8px;background:rgba(16,185,129,.08);border-radius:4px;text-align:center">
+            <div class="bull" style="font-size:16px;font-weight:bold">BULL 0.55</div>
+            <div style="font-size:9px;color:var(--muted)">L4 結算後真空</div>
+          </div>
+        </div>
+        <div style="padding:8px;background:rgba(59,130,246,.08);border-radius:4px;text-align:center;border:1px solid rgba(59,130,246,.3)">
+          <div style="color:var(--accent);font-size:14px;font-weight:bold">綜合：輕微偏多 BULL 0.525</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">vs S22 BEAR 0.588 → 方向收斂</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📅 情境概率更新</div>
+        <div class="prob-bar-container">
+          <div class="prob-label"><span>情境A：反彈 >$62,000</span><span class="bull">22% ▲</span></div>
+          <div class="prob-bar"><div class="prob-fill fill-green" style="width:22%"></div></div>
+        </div>
+        <div class="prob-bar-container">
+          <div class="prob-label"><span>情境B：$59k-$62k 核心帶</span><span class="neutral">50% →</span></div>
+          <div class="prob-bar"><div class="prob-fill fill-yellow" style="width:50%"></div></div>
+        </div>
+        <div class="prob-bar-container">
+          <div class="prob-label"><span>情境C：$56k-$59k</span><span class="bear">22% ▼</span></div>
+          <div class="prob-bar"><div class="prob-fill fill-red" style="width:22%"></div></div>
+        </div>
+        <div class="prob-bar-container">
+          <div class="prob-label"><span>情境D：<$56,000 尾部</span><span class="bear">6% ▼</span></div>
+          <div class="prob-bar"><div class="prob-fill fill-red" style="width:6%"></div></div>
+        </div>
+        <div style="font-size:9px;color:var(--muted);margin-top:6px">
+          vs S22: A:20%/B:45%/C:25%/D:10% → 分布收窄，尾部風險下降
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COLLISION -->
+<div id="tab-collision" class="tab-content">
+
+  <div class="collision-layer">
+    <div class="layer-header">
+      <div class="layer-title">Layer 1｜行為信號層（S23最大變化）</div>
+      <div class="layer-verdict bull" style="font-size:11px;font-weight:bold">BULL 0.60</div>
+    </div>
+    <div class="layer-body">
+      <div class="arg-row">
+        <div class="arg-tag bull-tag">BULL 1</div>
+        <div class="arg-text">L/S: 2.0440→2.2240（+8.8%）。Rule#15矛盾信號解除：FR正+L/S同升=方向一致。這是真實多頭信念，不是被迫接盤。BehaviorSignal恢復全28%權重。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bull-tag">BULL 2</div>
+        <div class="arg-text">OI下降(-2,700張) + FR正值上升 = 空頭主動平倉退場，非多頭大量離場。市場結構轉換早期信號。FR從+0.00444%→+0.00634%，多頭付費意願持續提升。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bear-tag">BEAR 1</div>
+        <div class="arg-text">L/S從極低（2.044）快速彈回（2.224），可能是空頭止損驅動而非多頭主動建倉。距S21高點（2.287）仍差0.063，且是在$59,900的Put Wall密集帶附近接盤，位置風險高。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bear-tag">BEAR 2</div>
+        <div class="arg-text">OI下降也可解讀為多空雙方同時退場（總倉位縮減），低量夜盤不代表真實買入意願，需等待日盤量能確認。</div>
+      </div>
+      <hr>
+      <div style="font-size:10px;color:var(--muted)">裁決：Rule#15解除是本快照最大結構性變化，BULL小勝。但需日盤確認。</div>
+    </div>
+  </div>
+
+  <div class="collision-layer">
+    <div class="layer-header">
+      <div class="layer-title">Layer 2｜MACD結構層（最分裂信號）</div>
+      <div class="layer-verdict bear" style="font-size:11px;font-weight:bold;color:var(--red)">BEAR 0.55</div>
+    </div>
+    <div class="layer-body">
+      <div class="arg-row">
+        <div class="arg-tag bull-tag">BULL 1</div>
+        <div class="arg-text">15min金叉：DIF=+6.76（正值域），MACD柱=+122.52（強勢），信號有效性1.0x。15min EMA5/10/30三線匯聚於$59,677~$59,770，Spot在三線上方，短期多頭排列確立。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bear-tag">BEAR 1</div>
+        <div class="arg-text">1D MACD從S22金叉(+28.39)→S23死叉(-10.86)，剛確認死叉，可靠性70%。在1D EMA全線壓頂（EMA5=$61,113，EMA200=$77,257）背景下，1D死叉確認中期空頭延續。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bear-tag">BEAR 2</div>
+        <div class="arg-text">4h死叉持續惡化：MACD=-130.04（S22為-101.16，惡化29%）。DIF(-959)絕對值仍大於DEA(-894)，動量在加速惡化。4h可靠性62%，遠高於15min的30%。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bull-tag">BULL 2</div>
+        <div class="arg-text">夜盤成交量極低（2,045萬），所有信號可靠性打折。低量環境下MACD信號的壽命和強度都需要重新評估。真正的方向需等待亞盤開盤量能。</div>
+      </div>
+      <hr>
+      <div style="font-size:10px;color:var(--muted)">裁決：15min金叉（30%可靠性）vs 1D死叉（70%可靠性），BEAR小勝。</div>
+    </div>
+  </div>
+
+  <div class="collision-layer">
+    <div class="layer-header">
+      <div class="layer-title">Layer 3｜GEX + 位置層</div>
+      <div class="layer-verdict neutral" style="font-size:11px;font-weight:bold;color:var(--yellow)">中性 0.50</div>
+    </div>
+    <div class="layer-body">
+      <div class="arg-row">
+        <div class="arg-tag bull-tag">BULL 1</div>
+        <div class="arg-text">Spot $59,910在3JUL26 $60k GEX Pin附近（誤差$90）。三期共振Pin（Rule#16）磁吸有效，$60k是三個到期日共同確認的引力中心。26JUN26結算後期權倉位重置，新週期GEX結構清白。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bear-tag">BEAR 1</div>
+        <div class="arg-text">$59,000是3JUL26最大Put Wall（1,147張），Spot在其上僅$910。跌破$59k即觸發NEG Regime，造市商由穩定器變放大器，下跌加速。上方$60k Call主導，突破需打穿Call Wall。</div>
+      </div>
+      <hr>
+      <div style="font-size:10px;color:var(--muted)">裁決：位置夾在兩個關鍵水位之間（$59k下方危險/$60k上方阻力），中性。</div>
+    </div>
+  </div>
+
+  <div class="collision-layer">
+    <div class="layer-header">
+      <div class="layer-title">Layer 4｜貝葉斯（結算後第一夜）</div>
+      <div class="layer-verdict bull" style="font-size:11px;font-weight:bold">BULL 0.55</div>
+    </div>
+    <div class="layer-body">
+      <div class="arg-row">
+        <div class="arg-tag bull-tag">BULL 1</div>
+        <div class="arg-text">大型季度期權結算後（$10.6B規模），大量倉位到期消失，市場進入「期權真空期」。DVOL 46.74→46.24（下降）確認恐慌降溫。歷史上結算後24-48h有回補傾向。夜盤低量穩定反彈，結構健康。</div>
+      </div>
+      <div class="arg-row">
+        <div class="arg-tag bear-tag">BEAR 1</div>
+        <div class="arg-text">1D死叉在下跌趨勢中是高可靠性的延續信號，非底部確認。結算後的「真空期」反彈通常是賣出機會，而非新趨勢的開始。STRC昨日跌至$74的結構性壓力未解。</div>
+      </div>
+      <hr>
+      <div style="font-size:10px;color:var(--muted)">裁決：結算後真空期短期偏多，但不改變中期空頭結構，BULL小勝。</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TECHNICAL -->
+<div id="tab-technical" class="tab-content">
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title" style="color:var(--cyan)">⏱ 15分鐘（可靠性30%）</div>
+      <div class="kpi" style="margin-bottom:6px">
+        <div class="kpi-val bull">金叉 1.0x ✓</div>
+        <div class="kpi-lbl">DIF正值域，MACD=+122.52</div>
+      </div>
+      <div style="font-size:10px">
+        <div class="ema-above" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA5 = $59,770 <span class="bull">▲ Spot上方 $112</span></div>
+        <div class="ema-above" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA10 = $59,694 <span class="bull">▲ Spot上方 $188</span></div>
+        <div class="ema-above" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA30 = $59,677 <span class="bull">▲ Spot上方 $205</span></div>
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA200 = $60,150 <span class="bear">▼ Spot下方 $240</span></div>
+        <hr>
+        <div>DIF = <span class="bull">+6.76</span> | DEA = <span class="bear">-54.49</span></div>
+        <div>MACD = <span class="bull">+122.52</span></div>
+        <div style="margin-top:4px;padding:4px;background:rgba(16,185,129,.08);border-radius:3px">
+          EMA5/10/30三線匯聚↑ Spot全線上方<br>短期多頭排列確立，低量夜盤中
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="color:var(--yellow)">⏱ 4小時（可靠性62%）</div>
+      <div class="kpi" style="margin-bottom:6px">
+        <div class="kpi-val bear">死叉 惡化</div>
+        <div class="kpi-lbl">MACD=-130.04（較S22更差）</div>
+      </div>
+      <div style="font-size:10px">
+        <div class="ema-above" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA5 = $59,919 <span class="neutral">≈貼合 (+9)</span></div>
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA10 = $60,257 <span class="bear">▼ 下方 $347</span></div>
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA30 = $61,581 <span class="bear">▼ 下方 $1,671</span></div>
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA200 = $66,384 <span class="bear">▼ 下方 $6,474</span></div>
+        <hr>
+        <div>DIF = <span class="bear">-959.78</span> | DEA = <span class="bear">-894.77</span></div>
+        <div>MACD = <span class="bear">-130.04</span> ↓ (S22: -101.16)</div>
+        <div style="margin-top:4px;padding:4px;background:rgba(239,68,68,.08);border-radius:3px">
+          DIF絕對值>DEA絕對值 = 動量仍在惡化<br>EMA5幾乎貼合，觀察能否收復
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="color:var(--red)">⏱ 日線（可靠性70%）★關鍵</div>
+      <div class="kpi" style="margin-bottom:6px">
+        <div class="kpi-val bear">死叉確認 ⚠️</div>
+        <div class="kpi-lbl">S22金叉→S23死叉，重大轉變</div>
+      </div>
+      <div style="font-size:10px">
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA5 = $61,113 <span class="bear">▼ 下方 $1,203</span></div>
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA10 = $62,186 <span class="bear">▼ 下方 $2,276</span></div>
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA30 = $65,431 <span class="bear">▼ 下方 $5,521</span></div>
+        <div class="ema-below" style="padding:4px 6px;border-radius:3px;margin-bottom:3px">EMA200 = $77,257 <span class="bear">▼ 下方 $17,347</span></div>
+        <hr>
+        <div>DIF = <span class="bear">-2,296.01</span> | DEA = <span class="bear">-2,290.58</span></div>
+        <div>MACD = <span class="bear">-10.86</span> (S22: <span class="bull">+28.39</span>)</div>
+        <div style="margin-top:4px;padding:4px;background:rgba(239,68,68,.12);border-radius:3px;border-left:3px solid var(--red)">
+          <strong class="bear">1D死叉確認：</strong>中期底部尚未出現<br>
+          下一個真底部信號 = 1D MACD再次金叉
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:10px">
+    <div class="card-title">📍 S22→S23 MACD演變追蹤</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:10px">
+      <div style="padding:8px;border:1px solid var(--border);border-radius:4px">
+        <div class="info" style="font-weight:bold;margin-bottom:4px">15min</div>
+        <div>S22: <span class="bull">金叉(+13.57)</span></div>
+        <div>S23: <span class="bull">金叉(+122.52)</span></div>
+        <div style="color:var(--muted);margin-top:3px">動能增強 ↑</div>
+      </div>
+      <div style="padding:8px;border:1px solid var(--border);border-radius:4px">
+        <div class="info" style="font-weight:bold;margin-bottom:4px">4h</div>
+        <div>S22: <span class="bear">死叉(-101.16)</span></div>
+        <div>S23: <span class="bear">死叉(-130.04)</span></div>
+        <div style="color:var(--muted);margin-top:3px">持續惡化 ↓</div>
+      </div>
+      <div style="padding:8px;border:1px solid var(--red);border-radius:4px;background:rgba(239,68,68,.05)">
+        <div class="red" style="font-weight:bold;margin-bottom:4px;color:var(--red)">1D ★關鍵</div>
+        <div>S22: <span class="bull">金叉(+28.39)</span></div>
+        <div>S23: <span class="bear">死叉(-10.86)</span></div>
+        <div class="bear" style="margin-top:3px;font-weight:bold">反轉！中期信號轉空</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTLEMENT -->
+<div id="tab-settlement" class="tab-content">
+  <div class="grid-2">
+    <div>
+      <div class="settlement-box" style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">3JUL26 | T=7天 | σ=$3,836</div>
+        <div class="settlement-main">$60,136 <span class="delta-badge delta-up">▲ S22+$439</span></div>
+        <div style="font-size:12px;color:var(--muted)">UFT Median（BehaviorSignal恢復全權重）</div>
+        <div style="font-size:11px;margin-top:4px">Mode: $60,000 ｜ EMH: $59,910</div>
+        <hr style="margin:10px 0">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;font-size:10px">
+          <div style="padding:6px;background:rgba(16,185,129,.1);border-radius:4px">
+            <div class="bull" style="font-weight:bold">22%</div>
+            <div style="color:var(--muted)">>$62k</div>
+          </div>
+          <div style="padding:6px;background:rgba(245,158,11,.1);border-radius:4px">
+            <div class="neutral" style="font-weight:bold">50%</div>
+            <div style="color:var(--muted)">$59k-62k</div>
+          </div>
+          <div style="padding:6px;background:rgba(239,68,68,.1);border-radius:4px">
+            <div class="bear" style="font-weight:bold">22%</div>
+            <div style="color:var(--muted)">$56k-59k</div>
+          </div>
+          <div style="padding:6px;background:rgba(239,68,68,.15);border-radius:4px">
+            <div class="bear" style="font-weight:bold">6%</div>
+            <div style="color:var(--muted)"><$56k</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔔 下一次觸發監控</div>
+        <div style="font-size:10px;line-height:2">
+          <div style="padding:4px 8px;background:rgba(16,185,129,.08);border-radius:3px;margin-bottom:4px">
+            <span class="bull">▲ 上觸發</span><br>
+            · Spot突破$60,500站穩（打穿Call Wall）<br>
+            · L/S升至2.25（整數觸發候選）<br>
+            · 4h MACD開始收斂（DIF絕對值<DEA）
+          </div>
+          <div style="padding:4px 8px;background:rgba(239,68,68,.08);border-radius:3px;margin-bottom:4px">
+            <span class="bear">▼ 下觸發（立即深度碰撞）</span><br>
+            · Spot跌破$59,000（3JUL最大Put Wall）<br>
+            · L/S再次跌破2.0（整數觸發）<br>
+            · FR轉負（多空成本再次逆轉）
+          </div>
+          <div style="padding:4px 8px;background:rgba(59,130,246,.08);border-radius:3px">
+            <span class="info">📅 時間觸發</span><br>
+            · S24: 2026-06-27 05:19（6h）<br>
+            · 或任一硬性觸發優先
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-title">⚗️ UFT v2.0 計算（S23）</div>
+        <div style="font-family:monospace;font-size:11px;line-height:2;padding:8px;background:rgba(59,130,246,.03);border-radius:4px">
+          <div><span style="color:var(--accent)">0.40</span>×GBM(<span class="neutral">$59,910</span>) = $23,964</div>
+          <div><span style="color:var(--green)">0.10</span>×GEX(<span class="neutral">$60,000</span>) = $6,000</div>
+          <div><span style="color:var(--yellow)">0.28</span>×Behavior(<span class="bull">$60,677</span>) = $16,990</div>
+          <div style="font-size:9px;color:var(--muted);padding-left:12px">← Rule#15解除，全權重，L/S+8.8%多偏</div>
+          <div><span style="color:var(--purple)">0.12</span>×Bayesian(<span class="neutral">$59,850</span>) = $7,182</div>
+          <div><span style="color:var(--cyan)">0.10</span>×TimeDecay(<span class="neutral">$60,000</span>) = $6,000</div>
+          <hr>
+          <div style="font-size:13px;font-weight:bold;color:var(--yellow)">= $60,136</div>
+        </div>
+        <div style="font-size:9px;color:var(--muted);margin-top:6px">
+          S22→S23 Median：$59,697→$60,136（+$439）<br>
+          方向轉變：Rule#15解除使Behavior成分從偏空轉偏多
+        </div>
+      </div>
+
+      <div class="card" style="border-color:var(--orange)">
+        <div class="card-title" style="color:var(--orange)">🔑 S23核心洞察</div>
+        <div style="font-size:10px;line-height:1.9">
+          <div style="margin-bottom:8px;padding:6px;background:rgba(16,185,129,.08);border-radius:4px">
+            <strong class="bull">好消息</strong>：S22最大擔憂（FR正但L/S跌的矛盾）已在6h內自我修正。
+            市場在$58,030測試底部後，空頭正在退場，行為信號轉向。
+          </div>
+          <div style="margin-bottom:8px;padding:6px;background:rgba(239,68,68,.08);border-radius:4px">
+            <strong class="bear">壞消息</strong>：1D MACD剛確認死叉，這是本框架最高可靠性（70%）的中期空頭信號。
+            沒有1D MACD金叉，中期趨勢未逆轉。
+          </div>
+          <div style="padding:6px;background:rgba(245,158,11,.08);border-radius:4px">
+            <strong class="neutral">結論</strong>：短期（3JUL26週選）：$60k磁吸，情境B（59-62k）50%主場景。
+            中期：1D死叉未解除前，每次反彈都是賣出機會而非趨勢逆轉。
+            最關鍵指標：明日亞盤量能 + 4h MACD能否開始收斂。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(id){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
