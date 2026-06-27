@@ -445,7 +445,9 @@ def fetch_all():
             regime = "POS" if spot > gamma_flip else "NEG"
             print(f"Gamma Flip {expiry}: ${gamma_flip:,} | Regime: {regime} ({'Spot above' if regime=='POS' else 'Spot below'}) ✅")
         else:
-            # fallback: 用最大Call OI行權價
+            # Improved fallback: find strike where cumulative GEX turns negative
+            cum_gex = 0
+            best_candidate = None
             for s in sorted(gex_by_strike.keys(), reverse=True):
                 cum_gex += gex_by_strike[s]
                 if cum_gex < 0 and best_candidate is None:
@@ -454,7 +456,7 @@ def fetch_all():
                 below = {k: o[k].get('put_oi',0) for k in sorted_strikes if k < spot}
                 best_candidate = max(below, key=below.get) if below else sorted_strikes[len(sorted_strikes)//2]
             gamma_flip_results[expiry] = best_candidate
-
+            print(f"Gamma Flip {expiry}: ${best_candidate:,} (improved fallback)")
     data["skew"] = skew_results
     data["gamma_flip"] = gamma_flip_results
 
