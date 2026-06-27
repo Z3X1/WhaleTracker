@@ -538,6 +538,62 @@ def fetch_all():
 
     print(f"PCR ATM/OTM calculated for {len(expiries)} expiries ✅")
 
+    # 5. Max Pain精確計算
+    for expiry in expiries:
+        o = data.get("options", {}).get(expiry, {})
+        if not o or len(o) < 3:
+            continue
+        strikes = sorted(o.keys())
+        min_pain = float("inf")
+        max_pain_strike = strikes[0]
+        for test_strike in strikes:
+            # 對每個行權價計算所有期權的損失
+            pain = 0
+            for k, v in o.items():
+                call_oi = float(v.get("call_oi", 0))
+                put_oi = float(v.get("put_oi", 0))
+                if test_strike > k:
+                    pain += call_oi * (test_strike - k)
+                elif test_strike < k:
+                    pain += put_oi * (k - test_strike)
+            if pain < min_pain:
+                min_pain = pain
+                max_pain_strike = test_strike
+        data[f"max_pain_{expiry}"] = max_pain_strike
+        print(f"Max Pain {expiry}: ${max_pain_strike:,} ✅")
+
+    # 6. OI集中度（前3大行權價佔總OI比例）
+    for expiry in expiries:
+        o = data.get("options", {}).get(expiry, {})
+        if not o:
+            continue
+        oi_by_strike = {k: float(v.get("call_oi",0))+float(v.get("put_oi",0)) for k,v in o.items()}
+        total_oi = sum(oi_by_strike.values())
+        top3_oi = sum(sorted(oi_by_strike.values(), reverse=True)[:3])
+        concentration = round(top3_oi/total_oi*100, 1) if total_oi > 0 else 0
+        data[f"oi_concentration_{expiry}"] = concentration
+        print(f"OI Concentration {expiry}: {concentration}% in top3 ✅")
+
+    # 7. Skew history snapshot（存入rolling list）
+    skew_history_path = "data/skew_history.json"
+    try:
+        import os as _os2
+        skew_hist = []
+        if _os2.path.exists(skew_history_path):
+            with open(skew_history_path) as f:
+                skew_hist = json.load(f)
+        skew_entry = {
+            "ts": data.get("timestamp","")[:16],
+            "skew": {exp: data.get("skew",{}).get(exp) for exp in expiries}
+        }
+        skew_hist.append(skew_entry)
+        skew_hist = skew_hist[-48:]  # 保留最近48個快照（約12天）
+        with open(skew_history_path, "w") as f:
+            json.dump(skew_hist, f)
+        print(f"Skew history saved ({len(skew_hist)} snapshots) ✅")
+    except Exception as e:
+        print(f"Skew history: {e}")
+
     data["timestamp"] = datetime.now(timezone.utc).isoformat()
 
     os.makedirs("data", exist_ok=True)
