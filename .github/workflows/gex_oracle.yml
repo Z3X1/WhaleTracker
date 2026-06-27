@@ -8,7 +8,7 @@ on:
 jobs:
   oracle:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
 
     steps:
       - name: Checkout
@@ -39,7 +39,7 @@ jobs:
           mkdir -p docs/oracle data
           python src/gex_oracle_auto.py
 
-      - name: Push all outputs via GitHub API
+      - name: Push dashboard via GitHub API
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           GH_REPO: ${{ github.repository }}
