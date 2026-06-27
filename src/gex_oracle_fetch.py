@@ -187,7 +187,7 @@ def fetch_all():
     oi_sources = [
         ("https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT", lambda d: float(d["openInterest"])/10000),
         ("https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["sumOpenInterest"])/10000),
-        # Bybit: openInterestValue是USD金額，需換算成張數
+        # Bybit: openInterestValue是USD，openInterest是BTC合約數
         ("https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT", lambda d: float(d["result"]["list"][0]["openInterestValue"])/spot_price/10000),
         # Bybit: openInterest是BTC數量
         ("https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT", lambda d: float(d["result"]["list"][0]["openInterest"])/10000),
@@ -209,12 +209,29 @@ def fetch_all():
 
     # ── LONG/SHORT（真實數據）──────────────────────────────
     ls_sources = [
-        ("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["longShortRatio"])),
-        ("https://fapi.binance.com/futures/data/topLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["longShortRatio"])),
-        ("https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["longShortRatio"])),
-        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=5min&limit=1", lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
-        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=1h&limit=1", lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
-        ("https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=5m&limit=1", lambda d: float(d["data"][0][1])/float(d["data"][0][2])),
+        # Binance
+        ("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1",
+         lambda d: float(d[0]["longShortRatio"])),
+        ("https://fapi.binance.com/futures/data/topLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1",
+         lambda d: float(d[0]["longShortRatio"])),
+        ("https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=5m&limit=1",
+         lambda d: float(d[0]["longShortRatio"])),
+        # Bybit
+        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=5min&limit=1",
+         lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
+        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=1h&limit=1",
+         lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
+        # OKX
+        ("https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio-contract?ccy=BTC&period=5m&limit=1",
+         lambda d: float(d["data"][0][1])/float(d["data"][0][2])),
+        ("https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=5m&limit=1",
+         lambda d: float(d["data"][0][1])/float(d["data"][0][2])),
+        # CoinGlass open API
+        ("https://open-api.coinglass.com/public/v2/long_short?symbol=BTC&period=5m",
+         lambda d: float(d["data"][0]["longRatio"])/float(d["data"][0]["shortRatio"]) if d.get("data") else None),
+        # Deribit perpetual (long/short via open interest direction)
+        ("https://www.deribit.com/api/v2/public/get_book_summary_by_instrument?instrument_name=BTC-PERPETUAL",
+         lambda d: float(d["result"][0].get("current_funding",0))),
     ]
     for url, parser in ls_sources:
         try:
