@@ -697,8 +697,8 @@ def main():
 
     # 4. 生成HTML
     html = generate_html(data, uft_result, collision, snapshot_num)
-    os.makedirs("docs", exist_ok=True)
-    with open("docs/index.html", "w", encoding="utf-8") as f:
+    output_dir = os.environ.get("OUTPUT_DIR", "docs"); os.makedirs(output_dir, exist_ok=True)
+    with open(f"{output_dir}/index.html", "w", encoding="utf-8") as f:
         f.write(html)
     print("✅ HTML生成完成 → docs/index.html")
 
