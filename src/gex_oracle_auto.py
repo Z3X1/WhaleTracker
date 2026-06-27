@@ -723,25 +723,40 @@ _{datetime.now().strftime('%Y-%m-%d %H:%M')} UTC+8_"""
 # ============================================================
 
 def load_prev_data(db_path="data/gex_oracle.db"):
-    """從SQLite載入上次快照"""
+    """載入上次快照 - 從counter.json持久化snapshot編號"""
     os.makedirs("data", exist_ok=True)
-    conn = sqlite3.connect(db_path)
-    conn.execute("""CREATE TABLE IF NOT EXISTS snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT,
-        snapshot_num INTEGER,
-        spot REAL, fr REAL, ls REAL, oi REAL, dvol REAL,
-        uft_median REAL, oracle_verdict TEXT,
-        data_json TEXT
-    )""")
-    conn.commit()
-    row = conn.execute(
-        "SELECT data_json, snapshot_num FROM snapshots ORDER BY id DESC LIMIT 1"
-    ).fetchone()
-    conn.close()
-    if row:
-        return json.loads(row[0]), row[1]
-    return None, 22  # 從S22開始
+    # 讀取snapshot counter
+    prev_num = 22
+    prev_data = None
+    counter_path = "data/snapshot_counter.json"
+    if os.path.exists(counter_path):
+        try:
+            with open(counter_path) as f:
+                c = json.load(f)
+                prev_num = int(c.get("last_snapshot", 22))
+                prev_data = c.get("last_data")
+        except:
+            pass
+    # 也嘗試SQLite
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.execute("""CREATE TABLE IF NOT EXISTS snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT, snapshot_num INTEGER,
+            spot REAL, fr REAL, ls REAL, oi REAL, dvol REAL,
+            uft_median REAL, oracle_verdict TEXT, data_json TEXT
+        )""")
+        conn.commit()
+        row = conn.execute(
+            "SELECT data_json, snapshot_num FROM snapshots ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        conn.close()
+        if row and row[1] > prev_num:
+            prev_num = row[1]
+            prev_data = json.loads(row[0])
+    except:
+        pass
+    return prev_data, prev_num
 
 def save_snapshot(data, uft_result, collision, snapshot_num, db_path="data/gex_oracle.db"):
     """保存快照到SQLite"""
