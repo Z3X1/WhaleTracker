@@ -470,7 +470,7 @@ def fetch_all():
     print(f"Spot:    ${data.get('spot',0):,.2f}")
     print(f"FR:      {data.get('fr',0)*100:+.5f}%")
     print(f"OI:      {data.get('oi',0):.2f}萬")
-    print(f"L/S:     {data.get('ls',0):.4f}")
+    print(f"L/S:     {data.get('ls') or 'N/A'}")
     print(f"DVOL:    {data.get('dvol',0):.2f}%")
     print(f"MACD:    {list(data.get('macd',{}).keys())}")
     print(f"到期日:  {data.get('expiries',[])} (週選/月選/季選)")
