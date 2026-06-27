@@ -26,9 +26,10 @@ def wrap_with_password(html_content):
     content_json = json.dumps(html_content)
     
     protected = f"""<!DOCTYPE html>
-<html>
+<html lang="zh-TW" translate="no">
 <head>
 <meta charset="UTF-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GEX Oracle</title>
 <style>
@@ -61,9 +62,12 @@ async function check(){{
   const pw=document.getElementById('pw').value;
   const h=await sha256(pw);
   if(h===HASH){{
+    // 先寫入，再設定translate=no
     document.open('text/html','replace');
     document.write(DATA);
     document.close();
+    // 確保不觸發翻譯
+    if(document.documentElement) document.documentElement.setAttribute('translate','no');
   }}else{{
     document.getElementById('err').textContent='Wrong password';
     document.getElementById('pw').value='';
