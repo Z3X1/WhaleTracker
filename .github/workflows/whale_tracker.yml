@@ -97,6 +97,22 @@ jobs:
             echo "| Dashboard | [View](https://z3x1.github.io/SideProject_WhaleTracker/) |" >> $GITHUB_STEP_SUMMARY
           fi
 
+
+      - name: Install Oracle dependencies
+        run: pip install anthropic --quiet
+
+      - name: Run GEX Oracle
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OUTPUT_DIR: docs/oracle
+        run: |
+          if [ -f src/gex_oracle_auto.py ]; then
+            python src/gex_oracle_auto.py || echo "Oracle run failed, continuing"
+          else
+            echo "Oracle script not found, skipping"
+          fi
       - name: Commit data + dashboard
         run: |
           git config user.name  "GEX Oracle Bot"
