@@ -183,11 +183,15 @@ def fetch_all():
             print("FR: 0.0% (所有來源失敗)")
 
     # ── OPEN INTEREST（真實數據）───────────────────────────
+    spot_price = data.get("spot", 60000)
     oi_sources = [
         ("https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT", lambda d: float(d["openInterest"])/10000),
         ("https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["sumOpenInterest"])/10000),
-        ("https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT", lambda d: float(d["result"]["list"][0]["openInterestValue"])/1000000),
-        ("https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USD-SWAP", lambda d: float(d["data"][0]["oiCcy"])/10000),
+        # Bybit: openInterestValue是USD金額，需換算成張數
+        ("https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT", lambda d: float(d["result"]["list"][0]["openInterestValue"])/spot_price/10000),
+        # Bybit: openInterest是BTC數量
+        ("https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT", lambda d: float(d["result"]["list"][0]["openInterest"])/10000),
+        ("https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP", lambda d: float(d["data"][0]["oiCcy"])/10000),
     ]
     for url, parser in oi_sources:
         try:
@@ -208,8 +212,9 @@ def fetch_all():
         ("https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["longShortRatio"])),
         ("https://fapi.binance.com/futures/data/topLongShortAccountRatio?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["longShortRatio"])),
         ("https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=5m&limit=1", lambda d: float(d[0]["longShortRatio"])),
-        # Bybit
         ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=5min&limit=1", lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
+        ("https://api.bybit.com/v5/market/account-ratio?category=linear&symbol=BTCUSDT&period=1h&limit=1", lambda d: float(d["result"]["list"][0]["buyRatio"])/float(d["result"]["list"][0]["sellRatio"])),
+        ("https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=5m&limit=1", lambda d: float(d["data"][0][1])/float(d["data"][0][2])),
     ]
     for url, parser in ls_sources:
         try:
@@ -226,13 +231,25 @@ def fetch_all():
         print("L/S: fallback 2.0")
 
     # ── DVOL ────────────────────────────────────────────────
-    try:
-        d = get("https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=BTC&resolution=3600&count=2")
-        val = float(d["result"]["data"][-1][4])
-        if 10 < val < 300:
-            data["dvol"] = val
-            print(f"DVOL: {val:.2f}% ✅")
-    except:
+    dvol_got = False
+    for dvol_url, dvol_parser in [
+        ("https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=BTC&resolution=3600&count=2",
+         lambda d: float(d["result"]["data"][-1][4])),
+        ("https://www.deribit.com/api/v2/public/get_index_price?index_name=dvol_btc",
+         lambda d: float(d["result"]["index_price"])),
+        ("https://www.deribit.com/api/v2/public/get_historical_volatility?currency=BTC",
+         lambda d: float(d["result"][-1][1])),
+    ]:
+        try:
+            d = get(dvol_url)
+            val = dvol_parser(d)
+            if 10 < val < 300:
+                data["dvol"] = val
+                print(f"DVOL: {val:.2f}% ✅")
+                dvol_got = True
+                break
+        except: pass
+    if not dvol_got:
         data["dvol"] = 46.5
         print("DVOL: fallback 46.5%")
 
