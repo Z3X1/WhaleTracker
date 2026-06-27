@@ -24,12 +24,8 @@ jobs:
       - name: Install deps
         run: pip install requests anthropic
 
-      - name: Probe and fetch all data
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          python3 src/gex_oracle_fetch.py
+      - name: Fetch market data
+        run: python src/gex_oracle_fetch.py
 
       - name: Run Oracle analysis
         env:
@@ -40,12 +36,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
           OUTPUT_DIR: docs/oracle
         run: |
-          mkdir -p docs/oracle
+          mkdir -p docs/oracle data
           python src/gex_oracle_auto.py
 
-      - name: Push results via GitHub API
+      - name: Push all outputs via GitHub API
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          python3 src/gex_oracle_push.py
+        run: python src/gex_oracle_push.py
