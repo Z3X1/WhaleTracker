@@ -776,8 +776,12 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
       <div class="ct">GEX Structure + Regime</div>
       <div class="row"><span>Regime (__EXP0__)</span><span style="color:""" + regime_col + """;font-weight:bold">""" + regime + """</span></div>
       <div class="row"><span>Gamma Flip (__EXP0__)</span><span style="color:var(--yel)">$__GF0__</span></div>
-      <div class="row"><span>Spot vs GF</span><span style="color:""" + regime_col + """">__SPOTGF__</span></div>
+      <div class="row"><span>Spot vs GF</span><span style="color:""" + regime_col + """">__SPOTGF__ (""" + f"{abs(spot-gf_main)/gf_main*100:.1f}" + """%)</span></div>
+      <div class="row"><span>Spot vs Put Wall</span><span style="color:var(--red)">+$""" + f"{spot-pw0:,.0f}" + """ (+""" + f"{(spot-pw0)/pw0*100:.1f}" + """%)</span></div>
+      <div class="row"><span>Spot vs Call Wall</span><span style="color:var(--green)">-$""" + f"{cw0-spot:,.0f}" + """ (-""" + f"{(cw0-spot)/cw0*100:.1f}" + """%)</span></div>
+      <div class="row"><span>Max Pain (__EXP0__)</span><span style="color:var(--pur)">$""" + f"{int(data.get('max_pain_'+exp0, uft_mode)):,}" + """</span></div>
       <div class="row"><span>GEX Pin (__EXP0__)</span><span style="color:var(--yel)">$""" + f"{uft_mode:,.0f}" + """</span></div>
+      <div class="row"><span>OI Concentration</span><span>""" + f"{data.get('oi_concentration_'+exp0, 0):.1f}" + """% in top3</span></div>
       <div class="row"><span>PCR __EXP0__ Global</span><span>""" + f"{pcr0:.3f}" + """ (C""" + f"{tc0:.0f}" + """/P""" + f"{tp0:.0f}" + """)</span></div>
       <div class="row"><span>PCR __EXP0__ ATM</span><span style="color:var(--cyan)">""" + f"{data.get('pcr_atm_'+exp0, pcr0):.3f}" + """</span></div>
       <div class="row"><span>PCR __EXP0__ OTM</span><span>""" + f"{data.get('pcr_otm_'+exp0, 0):.3f}" + """</span></div>
@@ -803,7 +807,7 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
     <div class="card" style="margin-bottom:10px">
       <div class="ct">Options Chain __EXP0__ (Top by OI)</div>
       <table>
-        <thead><tr><th>Strike</th><th>Call OI</th><th>Put OI</th><th>PCR</th></tr></thead>
+        <thead><tr><th>Strike</th><th>Call OI</th><th>Put OI</th><th>PCR</th><th>IV C/P%</th></tr></thead>
         <tbody>""" + strike_rows + """</tbody>
       </table>
     </div>
