@@ -273,17 +273,40 @@ def calc_uft(data, prev_data=None):
     gex = calc_gex_structure(opts_3jul, spot)
     gex_center = gex["pin"]
 
-    # BehaviorSignal成分
-    prev_ls = prev_data["ls"] if prev_data else None
-    oi_change = (data["oi"] - prev_data["oi"]) if prev_data else 0
-    behavior_raw, contradiction, weight = calc_behavior_signal(
-        data["fr"], data["ls"], oi_change, prev_ls
-    )
+    # BehaviorSignal成分（L/S已移除，用FR+PCR+Skew）
+    fr = data.get("fr", 0)
+    oi_change = (data.get("oi",0) - prev_data.get("oi",0)) if prev_data else 0
+    skew_main = data.get("skew", {}).get(expiries[0] if expiries else "3JUL26", 0) or 0
+    # FR信號方向
+    fr_signal = 1 if fr > 0 else -1
+    fr_strength = min(abs(fr) / 0.0001, 1.0)
+    # Skew信號（正skew=偏空，負skew=偏多）
+    skew_signal = -1 if skew_main > 2 else (1 if skew_main < -2 else 0)
+    # PCR信號（PCR>1=偏空，PCR<0.7=偏多）
+    pcr_val = data.get("options", {}).get(expiries[0] if expiries else "3JUL26", {})
+    tc = sum(float(v.get("call_oi",0)) for v in pcr_val.values()) if pcr_val else 1
+    tp = sum(float(v.get("put_oi",0)) for v in pcr_val.values()) if pcr_val else 1
+    pcr_ratio = tp/tc if tc > 0 else 1
+    pcr_signal = -1 if pcr_ratio > 1.2 else (1 if pcr_ratio < 0.7 else 0)
+    # 合成行為信號
+    raw_signal = (fr_signal * fr_strength * 0.5 + skew_signal * 0.3 + pcr_signal * 0.2)
+    # 矛盾檢測：FR多但Skew強烈偏空
+    contradiction = (fr_signal > 0 and skew_main > 5) or (fr_signal < 0 and skew_main < -5)
+    weight = 0.5 if contradiction else 1.0
+    behavior_raw = raw_signal * weight
     behavior_center = spot + behavior_raw * sigma * 0.3
 
+    # 使用精確Gamma Flip
+    expiries = data.get("expiries", ["3JUL26","31JUL26","25SEP26"])
+    gf_main = data.get("gamma_flip_main") or data.get("gamma_flip", {}).get(expiries[0] if expiries else "3JUL26", spot-2000)
+    regime = "POS" if spot > gf_main else "NEG"
     # GBM成分
-    macd_4h = data["macd_4h"]["macd"]
-    gbm_bias = -0.05 if macd_4h < -100 else (0.05 if macd_4h > 100 else 0)
+    m4h = data.get("macd_4h") or data.get("macd", {}).get("4h", {})
+    macd_4h_val = float(m4h.get("macd", 0)) if m4h else 0
+    gbm_bias = -0.05 if macd_4h_val < -100 else (0.05 if macd_4h_val > 100 else 0)
+    # NEG Regime加強下行偏移
+    if regime == "NEG":
+        gbm_bias -= 0.03
     gbm_center = spot + gbm_bias * sigma
 
     # 貝葉斯成分（簡化）
@@ -311,8 +334,13 @@ def calc_uft(data, prev_data=None):
         "uft_emh": spot,
         "sigma": sigma,
         "gex": gex,
+        "regime": regime,
+        "gamma_flip": gf_main,
         "behavior_contradiction": contradiction,
         "behavior_weight": weight,
+        "skew_main": skew_main,
+        "pcr_signal": pcr_signal,
+        "fr_signal": fr_signal,
         "gbm_center": gbm_center,
         "behavior_center": behavior_center,
         "bayes_center": bayes_center,
