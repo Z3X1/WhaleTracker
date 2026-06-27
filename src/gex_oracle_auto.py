@@ -525,6 +525,16 @@ def generate_html(data, uft_result, collision, snapshot_num):
     exp1 = expiries[1] if len(expiries)>1 else "N/A"
     exp2 = expiries[2] if len(expiries)>2 else "N/A"
 
+    # 預計算Skew值（避免HTML裡複雜f-string）
+    skew0 = data.get("skew", {}).get(exp0)
+    skew1 = data.get("skew", {}).get(exp1)
+    skew0_str = f"{skew0:+.1f}%" if skew0 is not None else "N/A"
+    skew1_str = f"{skew1:+.1f}%" if skew1 is not None else "N/A"
+    skew0_col = "#ef4444" if (skew0 or 0) > 2 else ("#10b981" if (skew0 or 0) < -2 else "var(--mut)")
+    gf_val = int(uft_result.get("gamma_flip", uft_mode))
+    regime_val = uft_result.get("regime", "POS")
+    regime_col = "#10b981" if regime_val == "POS" else "#ef4444"
+
     opts = data.get("options",{})
     def opt_stats(exp):
         o = opts.get(exp,{})
@@ -632,7 +642,7 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
 <div class="g4">
   <div class="card"><div class="kv" style="color:var(--yel)">$""" + f"{spot:,.0f}" + """</div><div class="kl">SPOT</div></div>
   <div class="card"><div class="kv" style="color:""" + fr_col + """">""" + fr_sign + f"{fr:.5f}" + """%</div><div class="kl">FUNDING RATE</div></div>
-  <div class="card"><div class="kv" style="color:var(--cyan)">" + (f"{data.get('skew',{}).get(exp0, 0):+.1f}%" if data.get('skew',{}).get(exp0) is not None else "N/A") + "</div><div class="kl">SKEW (" + exp0 + ")</div></div>
+  <div class="card"><div class="kv" style="color:" + skew0_col + "">" + skew0_str + "</div><div class="kl">SKEW (" + exp0 + ")</div></div>
   <div class="card"><div class="kv" style="color:var(--mut)">""" + f"{oi:.2f}" + """w</div><div class="kl">OPEN INTEREST</div></div>
 </div>
 
