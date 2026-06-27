@@ -486,9 +486,10 @@ def generate_html(data, uft_result, collision, snapshot_num):
     rule15_color = "var(--yellow)" if contradiction else "var(--green)"
 
     html = f"""<!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" translate="no">
 <head>
 <meta charset="UTF-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta http-equiv="refresh" content="21600">
 <title>GEX Oracle S{snapshot_num} | Auto</title>
