@@ -166,7 +166,7 @@ def fetch_deribit_options(expiry_label):
 
 def collect_all_data():
     """主數據收集函數"""
-    print("📡 開始收集數據...")
+    print("📡 Collecting data...")
     data = {}
 
     # Binance
@@ -218,7 +218,7 @@ def collect_all_data():
 # ============================================================
 
 def calc_gex_structure(options, spot):
-    """計算GEX結構：Pin水位、PCR、Gamma Flip"""
+    """計算GEX Structure：Pin水位、PCR、Gamma Flip"""
     if not options:
         return {"pin": spot, "pcr": 1.0, "gamma_flip": spot - 2000}
 
@@ -333,11 +333,11 @@ UFT_SYSTEM_PROMPT = """你是GEX Oracle分析引擎，使用統一場論(UFT) v2
 
 核心規則：
 R#1 Put Wall三態：OTM(Gamma≈0)/ATM(最不穩定)/ITM(動態支撐)
-R#2 MACD壽命：15min≥6.5h/4h≥104h/1D≥26天。負值域金叉=0.5x
+R#2 MACD壽命：15min≥6.5h/4h≥104h/1D≥26天。負值域Bullish X=0.5x
 R#5 FR穿越0%=最重要觸發信號
 R#10 POS Regime(Spot>GF)=穩定器/NEG(Spot<GF)=放大器
 R#14 主到期日結算後概率重置
-R#15 FR正+L/S同降=矛盾信號，BehaviorSignal×0.5
+R#15 FR正+L/S同降=Contradictory Signal，BehaviorSignal x0.5
 R#16 ≥3個到期日同一行權價最大Put OI=強力磁吸Pin
 
 UFT方程：P(X) = 0.40×GBM + 0.10×GEX + 0.28×BehaviorSignal + 0.12×Bayesian + 0.10×TimeDecay
@@ -380,7 +380,7 @@ def call_claude_collision(data, uft_result):
 基本數據：
 - Spot: ${data['spot']:,.0f}
 - DVOL: {data['dvol']:.2f}%
-- FR: {data['fr']*100:+.5f}%（{'正值，多頭付費' if data['fr']>0 else '負值，空頭付費'}）
+- FR: {data['fr']*100:+.5f}%（{'正值，Longs pay' if data['fr']>0 else '負值，Shorts pay'}）
 - L/S: {data['ls']:.4f}
 - OI: {data['oi']:.2f}萬
 
@@ -466,12 +466,12 @@ def generate_html(data, uft_result, collision, snapshot_num):
     macd_1d = data["macd_1d"]
 
     # 15min判斷
-    m15_status = "金叉" if macd_15["dif"] > macd_15["dea"] else "死叉"
-    m15_color = "var(--green)" if m15_status == "金叉" else "var(--red)"
-    m4h_status = "金叉" if macd_4h["dif"] > macd_4h["dea"] else "死叉"
-    m4h_color = "var(--green)" if m4h_status == "金叉" else "var(--red)"
-    m1d_status = "金叉" if macd_1d["dif"] > macd_1d["dea"] else "死叉"
-    m1d_color = "var(--green)" if m1d_status == "金叉" else "var(--red)"
+    m15_status = "Bullish X" if macd_15["dif"] > macd_15["dea"] else "Bearish X"
+    m15_color = "var(--green)" if m15_status == "Bullish X" else "var(--red)"
+    m4h_status = "Bullish X" if macd_4h["dif"] > macd_4h["dea"] else "Bearish X"
+    m4h_color = "var(--green)" if m4h_status == "Bullish X" else "var(--red)"
+    m1d_status = "Bullish X" if macd_1d["dif"] > macd_1d["dea"] else "Bearish X"
+    m1d_color = "var(--green)" if m1d_status == "Bullish X" else "var(--red)"
 
     # 碰撞結果
     oracle = collision.get("oracle_verdict", "N/A") if collision else "N/A"
@@ -482,11 +482,11 @@ def generate_html(data, uft_result, collision, snapshot_num):
     uft_mode = uft_result["uft_mode"]
     sigma = uft_result["sigma"]
     contradiction = uft_result["behavior_contradiction"]
-    rule15_text = "⚠️ Rule#15：矛盾信號，BehaviorSignal×0.5" if contradiction else "✅ Rule#15：信號一致，全權重"
+    rule15_text = "⚠️ Rule#15：Contradictory Signal，BehaviorSignal x0.5" if contradiction else "✅ Rule#15：信號一致，全權重"
     rule15_color = "var(--yellow)" if contradiction else "var(--green)"
 
     html = f"""<!DOCTYPE html>
-<html lang="zh-TW" translate="no">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="google" content="notranslate">
@@ -535,7 +535,7 @@ hr{{border:none;border-top:1px solid var(--border);margin:8px 0}}
 
 <div class="alert alert-info" style="margin-top:10px">
   <span>⚡</span>
-  <span><strong>Oracle裁決：{oracle}</strong> ｜ σ(3JUL26)=${sigma:,.0f} ｜ UFT Median=${uft_med:,.0f}</span>
+  <span><strong>Oracle Verdict：{oracle}</strong> ｜ σ(3JUL26)=${sigma:,.0f} ｜ UFT Median=${uft_med:,.0f}</span>
 </div>
 
 <div class="alert" style="margin:0 14px 10px;background:rgba(245,158,11,.1);border:1px solid {rule15_color};border-radius:6px;padding:8px 12px;font-size:11px;display:flex;gap:8px;align-items:center">
@@ -549,7 +549,7 @@ hr{{border:none;border-top:1px solid var(--border);margin:8px 0}}
   </div>
   <div class="card kpi">
     <div class="kpi-val" style="color:{fr_color}">{fr_sign}{fr_pct:.5f}%</div>
-    <div class="kpi-lbl">資金費率 FR</div>
+    <div class="kpi-lbl">Funding Rate</div>
   </div>
   <div class="card kpi">
     <div class="kpi-val {'bull' if data['ls'] > 2.1 else 'neutral'}">{data['ls']:.4f}</div>
@@ -564,7 +564,7 @@ hr{{border:none;border-top:1px solid var(--border);margin:8px 0}}
 <div class="grid-2">
   <div>
     <div class="card" style="margin-bottom:10px">
-      <div class="card-title">📈 三框架 MACD</div>
+      <div class="card-title">📈 MACD (3 Timeframes)</div>
       <div style="font-size:10px;line-height:2">
         <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
           <span class="info">15min (30%)</span>
@@ -585,7 +585,7 @@ hr{{border:none;border-top:1px solid var(--border);margin:8px 0}}
     </div>
 
     <div class="card">
-      <div class="card-title">🎯 GEX結構</div>
+      <div class="card-title">🎯 GEX Structure</div>
       <div style="font-size:10px;line-height:2">
         <div>GEX Pin (3JUL26): <strong>${uft_mode:,}</strong></div>
         <div>PCR: <strong>{uft_result['gex']['pcr']:.3f}</strong></div>
@@ -617,7 +617,7 @@ hr{{border:none;border-top:1px solid var(--border);margin:8px 0}}
 </div>
 
 <div style="text-align:center;padding:10px;color:var(--muted);font-size:10px">
-  自動生成 ｜ GEX Oracle v2.0 ｜ 每6h更新 ｜ 非投資建議
+  Auto-generated ｜ GEX Oracle v2.0 ｜ Updates every 6h ｜ Not investment advice
 </div>
 
 </body>
@@ -634,7 +634,7 @@ def send_telegram(data, uft_result, collision, snapshot_num):
     bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     if not bot_token or not chat_id:
-        print("⚠️  未設置Telegram，跳過推送")
+        print("⚠️  Telegram not configured, skipping")
         return
 
     spot = data["spot"]
@@ -646,7 +646,7 @@ def send_telegram(data, uft_result, collision, snapshot_num):
     contradiction = uft_result["behavior_contradiction"]
 
     macd_1d = data["macd_1d"]
-    m1d = "📈金叉" if macd_1d["dif"] > macd_1d["dea"] else "📉死叉"
+    m1d = "📈Bullish X" if macd_1d["dif"] > macd_1d["dea"] else "📉Bearish X"
 
     r15 = "⚠️矛盾(×0.5)" if contradiction else "✅一致(全權重)"
 
@@ -670,7 +670,7 @@ _{datetime.now().strftime('%Y-%m-%d %H:%M')} UTC+8_"""
         json={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown"},
         timeout=10
     )
-    print("✅ Telegram推送完成")
+    print("✅ Telegram推送Done")
 
 # ============================================================
 # 6. 狀態持久化層
@@ -711,7 +711,7 @@ def save_snapshot(data, uft_result, collision, snapshot_num, db_path="data/gex_o
     ))
     conn.commit()
     conn.close()
-    print(f"✅ S{snapshot_num} 保存完成")
+    print(f"✅ S{snapshot_num} Saved")
 
 # ============================================================
 # 主執行流程
@@ -725,12 +725,12 @@ def main():
     # 載入上次狀態
     prev_data, prev_num = load_prev_data()
     snapshot_num = prev_num + 1
-    print(f"快照編號: S{snapshot_num}")
+    print(f"Snapshot: S{snapshot_num}")
 
     # 1. 優先讀取已抓取的市場數據（由gex_oracle_fetch.py生成）
     market_data_path = "data/oracle_market_data.json"
     if os.path.exists(market_data_path):
-        print(f"📂 讀取預抓取數據: {market_data_path}")
+        print(f"📂 Loading pre-fetched data: {market_data_path}")
         with open(market_data_path) as f:
             data = json.load(f)
         print(f"  Spot: ${data.get('spot', 0):,.0f}")
@@ -764,7 +764,7 @@ def main():
     output_dir = os.environ.get("OUTPUT_DIR", "docs"); os.makedirs(output_dir, exist_ok=True)
     with open(f"{output_dir}/index.html", "w", encoding="utf-8") as f:
         f.write(html)
-    print("✅ HTML生成完成 → docs/index.html")
+    print("✅ HTML生成Done → docs/index.html")
 
     # 5. Telegram推送
     send_telegram(data, uft_result, collision, snapshot_num)
@@ -772,7 +772,7 @@ def main():
     # 6. 保存狀態
     save_snapshot(data, uft_result, collision, snapshot_num)
 
-    print(f"\n✅ S{snapshot_num} 完成")
+    print(f"\n✅ S{snapshot_num} Done")
 
 if __name__ == "__main__":
     main()
