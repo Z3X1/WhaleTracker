@@ -1871,13 +1871,6 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
 
 """ + settlement_html + """
 
-""" + ('''
-<div style="padding:0 10px 10px">
-<div class="card" style="border-color:#f59e0b">
-<div class="ct" style="color:#f59e0b">PRE-SETTLEMENT CHECKLIST (T-''' + str(_days_left) + '''d to ''' + exp0 + ''')</div>
-''' + "".join(f'<div class="row"><span>{item}</span><span style="color:{col}">{status}</span></div>' for item,status,col in cl_items) + '''
-</div>
-</div>''' if checklist_active else "") + """
 """ + ('<div style="padding:0 10px 10px"><div class="card" style="border-color:#f59e0b"><div class="ct" style="color:#f59e0b">T-' + str(_days_left) + 'd PRE-SETTLEMENT CHECKLIST (' + exp0 + ')</div>' + "".join(f'<div class="row"><span>{itm}</span><span style="color:{col}">{st}</span></div>' for itm,st,col in cl_items) + '</div></div>' if checklist_active else "") + """<div class="foot">GEX Oracle v2.0 | S""" + str(snapshot_num) + """ | 6h auto | Not investment advice</div>
 </body>
 </html>"""
