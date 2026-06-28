@@ -249,7 +249,7 @@ def calc_behavior_signal(fr, ls, oi_change, prev_ls=None):
 
     # 矛盾檢測
     contradiction = (fr_direction != ls_direction)
-    weight = 0.5 if contradiction else 1.0
+    weight = 0.7 if contradiction else 1.0
 
     # 信號強度
     fr_signal = min(abs(fr) / 0.0001, 1.0) * fr_direction  # 正規化
@@ -262,7 +262,17 @@ def calc_uft(data, prev_data=None):
     # UFT統一場方程計算
     spot = data["spot"]
     dvol = data["dvol"] / 100
-    T = 7 / 365  # 3JUL26
+    # T_main動態：從expiry計算實際剩餘天數
+    import re as _re2
+    from datetime import date as _date2
+    _mn2={"JAN":1,"FEB":2,"MAR":3,"APR":4,"MAY":5,"JUN":6,"JUL":7,"AUG":8,"SEP":9,"OCT":10,"NOV":11,"DEC":12}
+    _exp0=expiries[0] if expiries else "3JUL26"
+    _dl=7
+    try:
+        _m3=_re2.match(r"(\d+)([A-Z]+)(\d+)",_exp0)
+        if _m3: _dl=max(1,(_date2(2000+int(_m3.group(3)),_mn2[_m3.group(2)],int(_m3.group(1)))-_date2.today()).days)
+    except: pass
+    T = _dl / 365  # 動態T
     sigma = spot * dvol * math.sqrt(T)
 
     # GEX成分
@@ -280,6 +290,9 @@ def calc_uft(data, prev_data=None):
     fr_strength = min(abs(fr) / 0.0001, 1.0)
     # Skew信號(正skew=偏空,負skew=偏多)
     skew_signal = -1 if skew_main > 2 else (1 if skew_main < -2 else 0)
+    # T≤7d時Skew信號衰減（結算前Skew多為hedge非方向）
+    _skew_decay=0.5 if _dl<=7 else 1.0
+    skew_signal=skew_signal*_skew_decay
     # PCR ATM信號(更精確:用ATM PCR而非全局PCR)
     exp_main = expiries[0] if expiries else "3JUL26"
     pcr_atm = data.get(f"pcr_atm_{exp_main}", 0)
@@ -317,16 +330,21 @@ def calc_uft(data, prev_data=None):
                 + basis_signal * 0.05 + whale_signal * 0.05)
     behavior_signal = max(-1, min(1, raw_signal))
     contradiction = bool(fr > 0.005 and skew_main > 5)
-    weight = 0.28 * (0.5 if contradiction else 1.0)
+    weight = 0.28 * (0.7 if contradiction else 1.0)
     import math as _m2
     exp_main = expiries[0] if expiries else "3JUL26"
-    T_main = data.get("T_main", 7) / 365
+    T_main = _dl / 365  # 用同一個動態_dl
     sigma_main = spot * (data.get("dvol", 50) / 100) * _m2.sqrt(T_main)
     gf_dict = data.get("gamma_flip", {})
     gamma_flip_main = int(gf_dict.get(exp_main, gex_center) or gex_center)
     regime = "POS" if spot > gamma_flip_main else "NEG"
-    bayes_center = spot + (0.3 if regime == "POS" else -0.3) * sigma_main
-    bw = {"gbm":0.40,"gex":0.10,"behavior":weight,"bayesian":0.12,"timedecay":0.10}
+    # Bayesian偏移動態收斂：T越小越往GEX Pin收斂
+    _t_factor=max(0.0, min(1.0, _dl/30))  # T=0→0, T=30→1
+    _skew_factor=min(1.0, abs(skew_main)/10) if skew_main!=0 else 0.3
+    _regime_signal=1 if regime=="POS" else -1
+    _bayes_offset=_regime_signal*_skew_factor*_t_factor*0.4  # 最大±0.4σ
+    bayes_center=spot+_bayes_offset*sigma_main
+    bw = {"gbm":0.30,"gex":0.18,"behavior":weight,"bayesian":0.12,"timedecay":0.10}
     bw.update(data.get("uft_weights", {}))
     uft = (bw["gbm"]*spot + bw["gex"]*gex_center + weight*(spot+behavior_signal*sigma_main)
            + bw["bayesian"]*bayes_center + bw["timedecay"]*gex_center)
@@ -904,7 +922,7 @@ def main():
             predicted_median=uft_result["uft_median"],
             predicted_mode=uft_result["uft_mode"],
             components=uft_result.get("components", {}),
-            weights=data.get("uft_weights", {"gbm":0.40,"gex":0.10,"behavior":0.28,"bayesian":0.12,"timedecay":0.10}),
+            weights=data.get("uft_weights", {"gbm":0.30,"gex":0.18,"behavior":0.28,"bayesian":0.12,"timedecay":0.10}),
             signals={
                 "fr": data.get("fr"),
                 "skew": uft_result.get("skew_main"),
