@@ -647,7 +647,39 @@ def generate_html(data, uft_result, collision, snapshot_num):
           f'<div style="font-size:10px;line-height:1.7">{it}</div>')
     if nt: css+=f'<div style="font-size:9px;color:var(--cyan);margin-top:6px">Next: {nt}</div>'
     css+='</div></div></div>'
-    css+=slh+clh
+    # Oracle Conclusion區塊
+    coh=""
+    if collision or True:
+        _ov=ot; _ki=it; _nt=nt
+        _regime_txt="POS Regime (造市商穩定器)" if regime=="POS" else "NEG Regime (造市商放大器)"
+        _skew_txt=f"全期限偏空（{s0s}/{s1s}/{s2s}）" if (sk0 or 0)>5 else (f"全期限偏多（{s0s}/{s1s}/{s2s}）" if (sk0 or 0)<-5 else f"混合（{s0s}/{s1s}/{s2s}）")
+        _pin_txt=f"GEX Pin ${uft_mode:,.0f} vs Max Pain ${mpv:,}，差距 ${abs(mpv-uft_mode):,.0f}"
+        _settle_txt=f"T-{dl}d 進入結算收斂期" if dl<=7 else f"T-{dl}d 結算仍遠"
+        coh=(
+            f'<div style="padding:0 10px 10px"><div class="card" style="border-color:#8b5cf6">'
+            f'<div class="ct" style="color:#8b5cf6">ORACLE CONCLUSION — S{snapshot_num}</div>'
+            f'<div style="font-size:10px;line-height:1.9;color:var(--txt)">'
+            f'<div class="row"><span style="color:var(--mut)">Regime</span><span style="color:{rc};font-weight:bold">{_regime_txt}</span></div>'
+            f'<div class="row"><span style="color:var(--mut)">Skew結構</span><span style="color:{s0c}">{_skew_txt}</span></div>'
+            f'<div class="row"><span style="color:var(--mut)">Pin博弈</span><span style="color:var(--yel)">{_pin_txt}</span></div>'
+            f'<div class="row"><span style="color:var(--mut)">結算倒數</span><span style="color:var(--cyan)">{_settle_txt}</span></div>'
+            f'<div class="row"><span style="color:var(--mut)">UFT中位</span><span style="color:var(--yel)">${uft_med:,.0f} | Mode=${uft_mode:,.0f} | σ=${sigma:,.0f}</span></div>'
+            f'<div class="row"><span style="color:var(--mut)">情境分布</span><span>A={pA}% B={pB}% C={pC}% D={pD}%</span></div>'
+            f'<div class="row"><span style="color:var(--mut)">Active Rules</span><span style="color:#f59e0b">{len(ru)}個觸發</span></div>'
+            f'<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">'
+            f'<div style="font-size:9px;color:var(--mut);margin-bottom:4px">ORACLE VERDICT</div>'
+            f'<div style="font-size:11px;color:var(--acc);font-weight:bold">{_ov}</div>'
+            f'</div>'
+            f'<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">'
+            f'<div style="font-size:9px;color:var(--mut);margin-bottom:4px">KEY INSIGHT</div>'
+            f'<div style="font-size:10px;line-height:1.7;color:var(--txt)">{_ki}</div>'
+            f'</div>'
+            f'<div style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">'
+            f'<div style="font-size:9px;color:var(--mut);margin-bottom:4px">NEXT TRIGGER</div>'
+            f'<div style="font-size:10px;color:var(--cyan)">{_nt if _nt else "Monitor FR/Skew/Spot vs Pin"}</div>'
+            f'</div></div></div></div>'
+        )
+    css+=coh+slh+clh
     css+=f'<div class="foot">GEX Oracle v2.0 | S{snapshot_num} | 6h auto | Not investment advice</div></body></html>'
     return css
 
@@ -715,6 +747,23 @@ def save_snapshot(data, uft_result, collision, snapshot_num, db_path="data/gex_o
         data.get("ls"),data["oi"],data["dvol"],uft_result["uft_median"],oracle,json.dumps(data)))
     conn.commit(); conn.close()
     print(f"S{snapshot_num} Saved")
+    # 更新GitHub counter（跨runner持久化）
+    try:
+        import urllib.request as _urw, base64 as _b64w
+        gh_token=os.environ.get("GH_PAT",os.environ.get("GITHUB_TOKEN",""))
+        gh_repo=os.environ.get("GITHUB_REPOSITORY","Z3X1/SideProject_WhaleTracker")
+        url=f"https://api.github.com/repos/{gh_repo}/contents/data/snapshot_counter.json"
+        # 先GET取SHA
+        req_get=_urw.Request(url,headers={"Authorization":f"token {gh_token}","Accept":"application/vnd.github.v3+json"})
+        with _urw.urlopen(req_get,timeout=10) as rg:
+            existing=json.loads(rg.read())
+            file_sha=existing["sha"]
+        counter_data={"last_snapshot":snapshot_num,"last_data":{"uft_median":uft_result["uft_median"]}}
+        body_w=json.dumps({"message":f"counter: S{snapshot_num}","content":_b64w.b64encode(json.dumps(counter_data).encode()).decode(),"sha":file_sha}).encode()
+        req_put=_urw.Request(url,data=body_w,headers={"Authorization":f"token {gh_token}","Accept":"application/vnd.github.v3+json","Content-Type":"application/json"},method="PUT")
+        with _urw.urlopen(req_put,timeout=10): pass
+        print(f"Counter updated: S{snapshot_num}")
+    except Exception as ew: print(f"Counter update error: {ew}")
 
 def main():
     print("="*50)
