@@ -934,7 +934,7 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
       <div style="font-size:10px;line-height:1.7">""" + insight_txt + """</div>/usr/bin/env python3
 """
 GEX Oracle 自動化引擎 v2.0
-每6h自動執行:數據抓取 → UFT計算 → Claude碰撞 → HTML生成 → Telegram推送
+
 """
 
 import os, json, math, time, requests, sqlite3
