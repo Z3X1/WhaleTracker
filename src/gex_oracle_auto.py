@@ -262,17 +262,7 @@ def calc_uft(data, prev_data=None):
     # UFT統一場方程計算
     spot = data["spot"]
     dvol = data["dvol"] / 100
-    # T_main動態：從expiry計算實際剩餘天數
-    import re as _re2
-    from datetime import date as _date2
-    _mn2={"JAN":1,"FEB":2,"MAR":3,"APR":4,"MAY":5,"JUN":6,"JUL":7,"AUG":8,"SEP":9,"OCT":10,"NOV":11,"DEC":12}
-    _exp0=expiries[0] if expiries else "3JUL26"
-    _dl=7
-    try:
-        _m3=_re2.match(r"(\d+)([A-Z]+)(\d+)",_exp0)
-        if _m3: _dl=max(1,(_date2(2000+int(_m3.group(3)),_mn2[_m3.group(2)],int(_m3.group(1)))-_date2.today()).days)
-    except: pass
-    T = _dl / 365  # 動態T
+    T = 7 / 365  # 暫時，後面動態覆蓋
     sigma = spot * dvol * math.sqrt(T)
 
     # GEX成分
@@ -282,6 +272,18 @@ def calc_uft(data, prev_data=None):
 
     # BehaviorSignal成分(L/S已移除,用FR+PCR+Skew)
     expiries = data.get("expiries", ["3JUL26","31JUL26","25SEP26"])
+    # T_main動態：用expiries[0]計算實際剩餘天數
+    import re as _re2
+    from datetime import date as _date2
+    _mn2={"JAN":1,"FEB":2,"MAR":3,"APR":4,"MAY":5,"JUN":6,"JUL":7,"AUG":8,"SEP":9,"OCT":10,"NOV":11,"DEC":12}
+    _exp0=expiries[0] if expiries else "3JUL26"
+    _dl=7
+    try:
+        _m3=_re2.match(r"(\d+)([A-Z]+)(\d+)",_exp0)
+        if _m3: _dl=max(1,(_date2(2000+int(_m3.group(3)),_mn2[_m3.group(2)],int(_m3.group(1)))-_date2.today()).days)
+    except: pass
+    T = _dl / 365  # 動態T覆蓋
+    sigma = spot * dvol * math.sqrt(T)  # 重算sigma
     fr = data.get("fr", 0)
     oi_change = (data.get("oi",0) - prev_data.get("oi",0)) if prev_data else 0
     skew_main = data.get("skew", {}).get(expiries[0] if expiries else "3JUL26", 0) or 0
