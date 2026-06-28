@@ -932,10 +932,10 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
     <div class="card" style="border-color:var(--acc)">
       <div class="ct">Oracle Insight</div>
       <div style="font-size:10px;line-height:1.7">""" + insight_txt + """</div>/usr/bin/env python3
-"""
-GEX Oracle 自動化引擎 v2.0
 
-"""
+
+
+
 
 import os, json, math, time, requests, sqlite3
 from datetime import datetime, timezone
