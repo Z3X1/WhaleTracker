@@ -639,10 +639,37 @@ def generate_html(data, uft_result, collision, snapshot_num):
     rules_triggered = []
     if contra: rules_triggered.append("R#15 Contradictory signal")
     if regime == "NEG": rules_triggered.append("R#10 NEG Regime - MM Amplifier")
+    if regime == "POS": rules_triggered.append(f"R#10 POS Regime (Spot above GF ${gf_main:,})")
     if fr > 0.005: rules_triggered.append("R#5 FR bullish (>0.005%)")
     elif fr < -0.005: rules_triggered.append("R#5 FR bearish (<-0.005%)")
     if (sk0 or 0) > 5: rules_triggered.append(f"R#Skew Strong bearish skew +{sk0:.1f}%")
-    if spot > gf_main: rules_triggered.append(f"R#10 POS Regime (Spot above GF ${gf_main:,})")
+    elif (sk0 or 0) < -5: rules_triggered.append(f"R#Skew Strong bullish skew {sk0:.1f}%")
+    # R#2補充：1D MACD DIF位置
+    dif_1d = float((data.get("macd_1d") or data.get("macd",{}).get("1d",{})).get("dif",0))
+    dea_1d = float((data.get("macd_1d") or data.get("macd",{}).get("1d",{})).get("dea",0))
+    if dif_1d < 0 and dea_1d < 0 and dif_1d > dea_1d:
+        rules_triggered.append(f"R#2 1D Golden X in NEG DIF zone ({dif_1d:.0f}) - signal x0.5")
+    if dif_1d < -1000:
+        rules_triggered.append(f"R#2 1D DIF deeply negative ({dif_1d:.0f}) - strong bear momentum")
+    # DVOL vs ATM IV分歧
+    atm_iv_val = float(data.get(f"atm_iv_{exp0}", dvol) or dvol)
+    iv_premium = atm_iv_val - dvol
+    if abs(iv_premium) > 8:
+        rules_triggered.append(f"R#IV ATM-DVOL divergence: {iv_premium:+.1f}% ({'ATM cheap' if iv_premium<0 else 'ATM rich'})")
+    # PCR ATM vs OTM分歧
+    pcr_atm_val = float(data.get(f"pcr_atm_{exp0}", 0) or 0)
+    pcr_otm_val = float(data.get(f"pcr_otm_{exp0}", 0) or 0)
+    if pcr_atm_val > 0 and pcr_otm_val > 0:
+        if pcr_atm_val > 1.0 and pcr_otm_val < 0.5:
+            rules_triggered.append(f"R#PCR ATM bearish({pcr_atm_val:.2f}) vs OTM bullish({pcr_otm_val:.2f}) - mixed")
+    # OI集中度
+    conc = float(data.get(f"oi_concentration_{exp0}", 0) or 0)
+    if conc > 40:
+        rules_triggered.append(f"R#OI High concentration {conc:.0f}% in top3 - strong pin effect")
+    # Max Pain vs GEX Pin分歧
+    mp = int(data.get(f"max_pain_{exp0}", uft_mode) or uft_mode)
+    if abs(mp - uft_mode) > 1000:
+        rules_triggered.append(f"R#MaxPain-GEXPin divergence: ${abs(mp-uft_mode):,.0f} (MP${mp:,} vs Pin${uft_mode:,.0f})")
     rules_html = "".join(f'<div style="font-size:9px;padding:2px 0;border-bottom:1px solid var(--border)">{r}</div>' for r in rules_triggered) if rules_triggered else '<div style="font-size:9px;color:var(--mut)">No major rules triggered</div>'
 
     # Time since last update
@@ -663,10 +690,14 @@ def generate_html(data, uft_result, collision, snapshot_num):
         top8 = sorted(o0.items(), key=lambda x: x[1].get("call_oi",0)+x[1].get("put_oi",0), reverse=True)[:8]
         for strike, v in sorted(top8, key=lambda x: x[0]):
             c_oi = float(v.get("call_oi",0)); p_oi = float(v.get("put_oi",0))
+            c_iv = float(v.get("call_iv",0)); p_iv = float(v.get("put_iv",0))
             pcr_s = round(p_oi/c_oi,2) if c_oi>0 else 0
+            iv_str = f"{c_iv:.0f}/{p_iv:.0f}" if c_iv>0 or p_iv>0 else "-"
+            iv_col = "#ef4444" if max(c_iv,p_iv)>60 else ("var(--yel)" if max(c_iv,p_iv)>45 else "var(--mut)")
             atm = ' style="background:rgba(59,130,246,.08)"' if abs(int(strike)-spot)<1500 else ""
             gf_mark = " *GF*" if abs(int(strike)-gf_main) < 500 else ""
-            strike_rows += f'<tr{atm}><td>${int(strike):,}{gf_mark}</td><td>{c_oi:.0f}</td><td>{p_oi:.0f}</td><td>{pcr_s}</td></tr>'
+            mp_mark = " *MP*" if abs(int(strike)-int(data.get(f"max_pain_{exp0}",0) or 0)) < 500 else ""
+            strike_rows += f'<tr{atm}><td>${int(strike):,}{gf_mark}{mp_mark}</td><td>{c_oi:.0f}</td><td>{p_oi:.0f}</td><td>{pcr_s}</td><td style="color:{iv_col}">{iv_str}</td></tr>'
 
     beh_w = float(weights.get("behavior",0.28)) * (0.5 if contra else 1.0)
 
