@@ -559,6 +559,63 @@ def generate_html(data, uft_result, collision, snapshot_num):
     tc1,tp1,pcr1,cw1,pw1 = opt_stats(exp1)
     tc2,tp2,pcr2,cw2,pw2 = opt_stats(exp2)
 
+    # ── 進階顆粒度計算 ──
+    try:
+        _now = datetime.now(timezone.utc)
+        _nxt = min((h for h in [0,8,16] if h > _now.hour), default=24)
+        hours_to_fr = _nxt - _now.hour
+        fr_accumulated = round(fr * (8 - hours_to_fr), 6)
+        fr_next_str = f"{hours_to_fr}h{_now.minute:02d}m"
+    except: fr_accumulated=0; fr_next_str='N/A'
+    skew_trend=''; skew_trend_col='var(--mut)'; skew_trend_3=''
+    try:
+        import os as _os3, json as _j2
+        if _os3.path.exists('data/skew_history.json'):
+            with open('data/skew_history.json') as _f: _shd=_j2.load(_f)
+            if len(_shd)>=2:
+                _sp=_shd[-2].get('skew',{}).get(exp0); _sc=_shd[-1].get('skew',{}).get(exp0)
+                if _sp and _sc:
+                    _dd=_sc-_sp
+                    skew_trend=(f"{'▲' if _dd>0 else '▼'}{abs(_dd):.1f}%") if abs(_dd)>0.5 else '→'
+                    skew_trend_col='#ef4444' if _dd>0 else '#10b981'
+            if len(_shd)>=3:
+                _sv=[h.get('skew',{}).get(exp0) for h in _shd[-3:] if h.get('skew',{}).get(exp0)]
+                skew_trend_3=f"{_sv[0]:.1f}→{_sv[1]:.1f}→{_sv[2]:.1f}%" if len(_sv)==3 else ''
+    except: pass
+    _gf_dist=abs(spot-gf_main)
+    gf_stab_s=_gf_dist/sigma if sigma>0 else 0
+    gf_stable_str='STABLE' if gf_stab_s>0.3 else 'UNSTABLE'
+    gf_stable_col='#10b981' if gf_stab_s>0.3 else '#f59e0b'
+    _pin_dist=abs(spot-uft_mode)
+    _mp_v=int(data.get(f'max_pain_{exp0}',uft_mode) or uft_mode)
+    pin_score=max(0,100-_pin_dist/10-abs(spot-_mp_v)/20)
+    pin_risk='HIGH' if pin_score>70 else ('MEDIUM' if pin_score>40 else 'LOW')
+    pin_col='#ef4444' if pin_score>70 else ('#f59e0b' if pin_score>40 else '#10b981')
+    checklist_active=False; cl_items=[]; _days_left=999
+    try:
+        import re as _re2
+        _mn2={'JAN':1,'FEB':2,'MAR':3,'APR':4,'MAY':5,'JUN':6,'JUL':7,'AUG':8,'SEP':9,'OCT':10,'NOV':11,'DEC':12}
+        _mm=_re2.match(r'(\d+)([A-Z]+)(\d+)',exp0)
+        if _mm:
+            from datetime import date as _dt2
+            _ed=_dt2(2000+int(_mm.group(3)),_mn2[_mm.group(2)],int(_mm.group(1)))
+            _days_left=(_ed-_dt2.today()).days
+            if 0<_days_left<=7:
+                checklist_active=True
+                cl_items=[
+                    ('FR direction stable','✓' if abs(fr)>0.002 else '?','#10b981' if abs(fr)>0.002 else '#f59e0b'),
+                    ('Put Wall holding','✓' if spot>pw0 else '✗','#10b981' if spot>pw0 else '#ef4444'),
+                    ('Spot above GF','✓' if regime=="POS" else '✗','#10b981' if regime=="POS" else '#ef4444'),
+                    ('GEX Pin stable','✓' if _pin_dist<500 else '?','#10b981' if _pin_dist<500 else '#f59e0b'),
+                    ('Skew not expanding','✓' if '▲' not in skew_trend else '!','#10b981' if '▲' not in skew_trend else '#ef4444'),
+                    (f'Gamma Flip POS (${gf_main:,})','✓' if regime=="POS" else '✗','#10b981' if regime=="POS" else '#ef4444'),
+                ]
+    except: pass
+    data_fresh=True
+    try:
+        _ts2=data.get('timestamp','')
+        if _ts2: data_fresh=(datetime.now(timezone.utc)-datetime.fromisoformat(_ts2.replace('Z','+00:00'))).total_seconds()<25200
+    except: pass
     sk0 = skews.get(exp0); sk1 = skews.get(exp1); sk2 = skews.get(exp2)
     sk0_str = f"{sk0:+.1f}%" if sk0 is not None else "N/A"
     sk1_str = f"{sk1:+.1f}%" if sk1 is not None else "N/A"
@@ -867,7 +924,7 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
 ''' + "".join(f'<div class="row"><span>{item}</span><span style="color:{col}">{status}</span></div>' for item,status,col in cl_items) + '''
 </div>
 </div>''' if checklist_active else "") + """
-<div class="foot">GEX Oracle v2.0 | S""" + str(snapshot_num) + """ | 6h auto | Not investment advice</div>
+""" + ('<div style="padding:0 10px 10px"><div class="card" style="border-color:#f59e0b"><div class="ct" style="color:#f59e0b">T-' + str(_days_left) + 'd PRE-SETTLEMENT CHECKLIST (' + exp0 + ')</div>' + "".join(f'<div class="row"><span>{itm}</span><span style="color:{col}">{st}</span></div>' for itm,st,col in cl_items) + '</div></div>' if checklist_active else "") + """<div class="foot">GEX Oracle v2.0 | S""" + str(snapshot_num) + """ | 6h auto | Not investment advice</div>
 </body>
 </html>"""
 
