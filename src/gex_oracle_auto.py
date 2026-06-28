@@ -744,7 +744,8 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
 <div class="hdr">
   <div>
     <div class="ht">GEX ORACLE AUTO S""" + str(snapshot_num) + """</div>
-    <div class="hs">UFT v2.0 | """ + ts + """ UTC | 6h auto | <span style="color:""" + age_col + """">updated """ + age_str + """</span></div>
+    <div class="hs">UFT v2.0 | """ + ts + """ UTC | 6h auto | <span style="color:""" + age_col + """">updated """ + age_str + """</span>""" + ("" if data_fresh else " | <span style=\"color:#ef4444\">⚠ DATA STALE</span>") + """</div>
+    <div class="hs" style="margin-top:2px">FR next settlement: <span style="color:var(--cyan)">""" + fr_next_str + """</span> | Accumulated: <span style="color:""" + fr_col + """">""" + f"{fr_accumulated:+.5f}" + """%</span> | Pin Risk: <span style="color:""" + pin_col + """;font-weight:bold">""" + pin_risk + """</span></div>
   </div>
   <div style="text-align:right">
     <div style="font-size:9px;color:var(--mut)">BTC/USDT PERP | Regime: <span style="color:""" + regime_col + """;font-weight:bold">""" + regime + """</span> | GF: $""" + f"{gf_main:,}" + """ | """ + countdown_str + """</div>
@@ -808,6 +809,8 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
       <div class="row"><span>Regime (__EXP0__)</span><span style="color:""" + regime_col + """;font-weight:bold">""" + regime + """</span></div>
       <div class="row"><span>Gamma Flip (__EXP0__)</span><span style="color:var(--yel)">$__GF0__</span></div>
       <div class="row"><span>Spot vs GF</span><span style="color:""" + regime_col + """">__SPOTGF__ (""" + f"{abs(spot-gf_main)/gf_main*100:.1f}" + """%)</span></div>
+      <div class="row"><span>GF Stability</span><span style="color:""" + gf_stable_col + """">""" + gf_stable_str + """ (""" + f"{gf_stability:.2f}" + """s from GF)</span></div>
+      <div class="row"><span>Pin Risk</span><span style="color:""" + pin_col + """;font-weight:bold">""" + pin_risk + """ (score """ + f"{pin_score:.0f}" + """)</span></div>
       <div class="row"><span>Spot vs Put Wall</span><span style="color:var(--red)">+$""" + f"{spot-pw0:,.0f}" + """ (+""" + f"{(spot-pw0)/pw0*100:.1f}" + """%)</span></div>
       <div class="row"><span>Spot vs Call Wall</span><span style="color:var(--green)">-$""" + f"{cw0-spot:,.0f}" + """ (-""" + f"{(cw0-spot)/cw0*100:.1f}" + """%)</span></div>
       <div class="row"><span>Max Pain (__EXP0__)</span><span style="color:var(--pur)">$""" + f"{int(data.get('max_pain_'+exp0, uft_mode)):,}" + """</span></div>
@@ -825,7 +828,8 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
     </div>
     <div class="card">
       <div class="ct">Cross-Expiry Skew</div>
-      <div class="row"><span>__EXP0__ (__COUNTDOWN__)</span><span style="color:__SK0_COL__">__SK0_STR__</span></div>
+      <div class="row"><span>__EXP0__ (__COUNTDOWN__)</span><span style="color:__SK0_COL__">__SK0_STR__ <span style="color:""" + skew_trend_col + """">""" + skew_trend + """</span></span></div>
+      <div style="font-size:9px;color:var(--mut);margin-bottom:2px">History: """ + skew_trend_3 + """</div>
       <div style="background:var(--border);height:6px;border-radius:3px;margin:2px 0 6px;overflow:hidden"><div style="height:100%;width:__SK0_W__;background:__SK0_COL__;border-radius:3px"></div></div>
       <div class="row"><span>__EXP1__</span><span style="color:__SK1_COL__">__SK1_STR__</span></div>
       <div style="background:var(--border);height:6px;border-radius:3px;margin:2px 0 6px;overflow:hidden"><div style="height:100%;width:__SK1_W__;background:__SK1_COL__;border-radius:3px"></div></div>
@@ -856,6 +860,13 @@ td:first-child{text-align:center;font-weight:bold;color:var(--cyan)}
 
 """ + settlement_html + """
 
+""" + ('''
+<div style="padding:0 10px 10px">
+<div class="card" style="border-color:#f59e0b">
+<div class="ct" style="color:#f59e0b">PRE-SETTLEMENT CHECKLIST (T-''' + str(_days_left) + '''d to ''' + exp0 + ''')</div>
+''' + "".join(f'<div class="row"><span>{item}</span><span style="color:{col}">{status}</span></div>' for item,status,col in cl_items) + '''
+</div>
+</div>''' if checklist_active else "") + """
 <div class="foot">GEX Oracle v2.0 | S""" + str(snapshot_num) + """ | 6h auto | Not investment advice</div>
 </body>
 </html>"""
