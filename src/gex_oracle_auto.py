@@ -356,13 +356,20 @@ def calc_uft(data, prev_data=None):
     _regime_signal = 1 if regime == "POS" else -1
     _bayes_offset = _regime_signal * _skew_factor * _t_factor * 0.4
     bayes_center = spot + _bayes_offset * sigma_main
-    # ── 基礎權重（固定歸一，sum=1.00）────────────────────────────
-    bw = {"gbm": 0.30, "gex": 0.18, "behavior": 0.28, "bayesian": 0.12, "timedecay": 0.12}
-    # 允許 optimizer 覆蓋（optimizer 輸出應保證 sum=1）
+    # ── 權重取得：優先用 Regime 分層最優權重（L3）─────────────
+    # 嘗試從 optimizer 取 regime-specific 最優權重
+    try:
+        import sys as _sys_uft
+        _sys_uft.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from uft_optimizer import get_regime_weights as _grw
+        bw = _grw(regime)  # POS/NEG 各自最優
+    except Exception:
+        bw = {"gbm": 0.30, "gex": 0.18, "behavior": 0.28, "bayesian": 0.12, "timedecay": 0.12}
+    # 允許 data["uft_weights"] 覆蓋（human override）
     _override = data.get("uft_weights", {})
     if _override and abs(sum(_override.values()) - 1.0) < 0.02:
-        bw.update(_override)
-    # 重新歸一（防止浮點誤差）
+        bw = dict(_override)
+    # 最終歸一（防止浮點誤差）
     _total = sum(bw.values())
     bw = {k: v / _total for k, v in bw.items()}
     # ── UFT 方程式（所有項結構統一：weight × center_estimate）────
@@ -785,184 +792,176 @@ def generate_html(data, uft_result, collision, snapshot_num):
             f'</div></div></div></div>'
         )
     css+=coh+slh+clh
-    css+=f'<div class="foot">GEX Oracle v2.0 | S{snapshot_num} | 6h auto | Not investment advice</div></body></html>'
+    # Tab系統
+    tab_js = (
+        'function showTab(n){'
+        '["main","glossary","learning"].forEach(function(t){'
+        'var e=document.getElementById(t);'
+        'var b=document.getElementById("tab-"+t);'
+        'if(e)e.style.display=(t===n?"block":"none");'
+        'if(b){b.style.background=(t===n?"var(--acc)":"var(--panel)");'
+        'b.style.color=(t===n?"#fff":"var(--mut)");}});}'
+    )
+    tab_active = 'background:var(--acc);color:#fff;border:none'
+    tab_inactive = 'background:var(--panel);color:var(--mut);border:1px solid var(--border);border-bottom:none'
+    tab_btn_base = 'padding:6px 12px;border-radius:4px 4px 0 0;font-size:10px;cursor:pointer;font-family:inherit'
+    css += (
+        f'<div style="display:flex;gap:4px;padding:8px 10px 0;background:var(--bg);'
+        f'border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100">'
+        f'<button onclick="showTab(\'main\')" id="tab-main" style="{tab_active};{tab_btn_base}">主要分析</button>'
+        f'<button onclick="showTab(\'glossary\')" id="tab-glossary" style="{tab_inactive};{tab_btn_base}">📖 名詞解釋</button>'
+        f'<button onclick="showTab(\'learning\')" id="tab-learning" style="{tab_inactive};{tab_btn_base}">🧠 學習狀態</button>'
+        f'</div><script>{tab_js}</script>'
+        f'<div id="main">'
+    )
+    css += coh + slh + clh
+    css += f'<div class="foot">GEX Oracle v2.0 | S{snapshot_num} | 6h auto | Not investment advice</div>'
+    css += '</div>'  # close #main
+
+    # ── Glossary Tab ─────────────────────────────────────────────
+    glossary_terms = [
+        ("UFT (Unified Field Theory)", "統一場論", "GEX Oracle 核心預測框架。P(X)=0.30×GBM+0.18×GEX+0.28×行為信號+0.12×貝葉斯+0.12×時間衰減。五個分量加權合成結算價中位估計。"),
+        ("GBM", "幾何布朗運動", "金融標準隨機遊走。假設 BTC 以 Spot 為起點按 DVOL 定義的波動率做隨機擴散。GBM 中心=Spot，是最保守的 EMH 基準。權重 0.30。"),
+        ("GEX", "Gamma 暴露", "造市商被迫對沖的 Delta 方向。GEX>0：MM 持有正 Gamma，價格偏離 Pin 時反向買賣→穩定化。GEX<0：MM 放大波動。權重 0.18。"),
+        ("BehaviorSignal", "行為信號", "FR方向×強度(35%)+Skew偏態(25%)+PCR(20%)+OI變化(10%)+Basis(5%)+鯨魚鏈上(5%)。範圍[-1,+1]，+1=極度多頭行為。權重 0.28。"),
+        ("Bayesian", "貝葉斯分量", "基於 Regime 方向和 Skew 的先驗估計。T越小越往 GEX Pin 收斂（結算吸引力）。POS Regime 時偏 Spot 上方，NEG 時偏下方。權重 0.12。"),
+        ("TimeDecay", "時間衰減分量", "臨近結算時 GEX Pin 吸引力增強效應。T→0 時 Gamma 極度集中於 Pin 附近，Pin 磁鐵效應最強。中心估計=GEX Pin。權重 0.12。"),
+        ("UFT Median", "UFT 中位數", "五個分量加權合成的結算價中位估計。歷史誤差：26MAR26=0.41σ，27MAR26=0.02σ，3APR26≈0σ。"),
+        ("UFT Mode", "UFT 眾數", "概率分布峰值，等同於 GEX Pin（最大 Gamma 集中點）。結算前 T-3d 內 Pin 磁鐵效應最強。"),
+        ("σ (Sigma)", "一個標準差", "σ=Spot×(DVOL/100)×√T。BTC 有 68% 概率在到期日停留在 [Spot-σ, Spot+σ]。"),
+        ("EMH", "效率市場假說基準", "EMH 下最優預測=當前現貨價。UFT 框架 alpha 在條件概率分布形狀和風控邊界識別，而非點預測精度。"),
+        ("Gamma Flip (GF)", "Gamma 翻轉點", "造市商 Gamma 暴露從正轉負的臨界價位。Spot>GF→POS Regime（穩定器）；Spot<GF→NEG Regime（放大器）。最重要的 Regime 邊界。"),
+        ("POS Regime", "正向 Gamma 機制", "現貨在 GF 以上。MM 持正 Gamma：下跌時買入、上漲時賣出→均值回歸、低波動、Pin 磁鐵有效。"),
+        ("NEG Regime", "負向 Gamma 機制", "現貨跌破 GF。MM 持負 Gamma：下跌時追賣→放大下跌。趨勢延伸、高波動、Pin 磁鐵失效。"),
+        ("GEX Pin", "Gamma 磁鐵點", "Put OI 最集中的行使價（ATM 附近）。造市商在此 Gamma 對沖需求最大，傾向把現貨固定在此附近，尤其結算前 48h。"),
+        ("Max Pain", "最大痛苦點", "使期權買方總虧損最大的行使價。理論上造市商有動力把現貨推向此點。GEX Pin 通常比 Max Pain 更有實際吸引力。"),
+        ("Pin Risk", "Pin 風險", "現貨被 Pin 在某行使價附近的風險。對空頭 Gamma 持有者有爆炸性損失風險。本系統用 GEX Pin 距 Spot 距離量化。"),
+        ("Call Wall", "看漲阻力牆", "Call OI 最集中的行使價。MM 在此附近空 Gamma，上漲過此點需大量買入對沖→形成自然阻力，突破可能加速（Gamma Squeeze）。"),
+        ("Put Wall", "看跌支撐牆", "Put OI 最集中的行使價。三態：OTM=支撐弱；ATM（Spot≈PW）=最強支撐；ITM（Spot<PW）=MM 轉為買入=動態支撐。"),
+        ("PCR", "Put/Call 比率", "Put OI÷Call OI。>1.3：空頭防禦主導；<0.6：多頭進攻主導。ATM PCR 比全域 PCR 更能反映即時方向，OTM PCR 反映尾部風險需求。"),
+        ("OI Concentration", "OI 集中度", "最大3個行使價的 OI 佔總 OI 比例。集中度越高→Pin 效應越強。通常結算前 OI 向 ATM 集中。"),
+        ("Cross-Expiry Skew", "跨期 Skew 結構", "近端 Skew > 遠端為正常。倒掛（遠端>近端）→市場預期中長期尾部風險更高，可能為機構對沖需求。"),
+        ("IV (Implied Volatility)", "隱含波動率", "從期權市場價格反推的未來波動率預期。ATM IV 最能反映市場共識，OTM IV 反映尾部風險定價。"),
+        ("DVOL Index", "Deribit 波動率指數", "Deribit 官方 BTC 期權市場整體 IV 指數（類似 VIX）。30天期限年化波動率，多行使價加權合成。上升=市場恐慌/對沖需求增加。"),
+        ("ATM IV", "平值隱含波動率", "最接近當前 Spot 的期權 IV。ATM IV - DVOL = IV Premium，正值表示近端比市場整體更貴。"),
+        ("Skew", "波動率偏態", "Put IV - Call IV（OTM）。正值：市場為下行保護付更高溢價，空頭情緒主導（BTC 通常正 Skew）。"),
+        ("Gamma", "期權 Gamma", "Delta 對 Spot 的二階導數。衡量 MM Delta 對沖需求隨 Spot 變化的速度。ATM Gamma 最大，結算前 Gamma 最集中。"),
+        ("Delta", "期權 Delta", "期權價值對標的物價格的一階導數。Call Delta∈[0,1]，Put Delta∈[-1,0]。MM 通常 Delta 中性但 Gamma 暴露無法消除。"),
+        ("FR (Funding Rate)", "資金費率", "永續合約每 8h 結算一次。FR>0：多方付費給空方（現貨溢價/多頭主導）；FR<0：空方付費（反向溢價/空頭主導）。觸發閾值±0.005%。"),
+        ("Perp Basis", "永續基差", "永續合約價格-現貨價格。正值=合約溢價（多頭情緒）；負值=折價（空頭情緒）。是 FR 的即時領先指標。"),
+        ("L/S Ratio", "多空比", "大戶帳戶多頭/空頭持倉比例。>2.0=大戶明顯偏多，<1.0=偏空。FR正+L/S上升=全權重確認；矛盾=行為信號×0.7懲罰。"),
+        ("OI (Open Interest)", "未平倉量", "市場上未平倉合約總量（萬張）。OI增加+FR正→新多頭進場；OI增加+FR負→新空頭進場；OI下降=舊倉位平倉（趨勢末段）。"),
+        ("MACD (12,26,9)", "移動平均匯聚背離", "DIF=EMA12-EMA26；DEA=DIF的EMA9；MACD=(DIF-DEA)×2。DIF>DEA=金叉（多）；DIF<DEA=死叉（空）。金叉在DIF<0領域→信號×0.5。"),
+        ("DIF", "MACD 快慢線差", "DIF=EMA12-EMA26。DIF>0且上升=上升動能加速；DIF<0且下降=下跌動能加速。1D DIF<-1000觸發Rule#2深度負值警告。"),
+        ("RSI", "相對強弱指數", "範圍[0,100]。RSI<30=超賣（潛在反彈），>70=超買（潛在回調）。需區分真實超賣（RSI隨Spot下跌>1根K棒）和機械滾動（效果×0.5）。"),
+        ("EMA", "指數移動平均", "近期價格權重更高的移動平均。本系統使用 EMA5/10/30/200。Spot 在所有 EMA 下方=全線空頭排列。"),
+        ("Rule#5 v2b", "FR 確認規則", "FR 須持續正值 16h 以上（=兩個完整 8h 結算週期）才算多頭確認。單週期正 FR 可能是噪音。"),
+        ("Rule#14", "FR 最小分析單位", "FR 是每 8h 結算機制，sub-8h 的 FR 分析在方法論上無效。最小有效單位=一個 8h 結算週期。"),
+        ("Rule#15 矛盾懲罰", "行為信號矛盾檢測", "FR>+0.005%且Skew>+5%（FR偏多但Skew偏空），behavior_penalty=0.7×。基礎權重0.28不變，信號強度縮減。"),
+        ("Regime 分層", "POS/NEG 機制分離", "POS：Layer1+Layer2合併分析，造市商提供自然支撐。NEG：兩層嚴格分離，造市商變放大器，每個信號需更高確信度。"),
+        ("Pin 博弈", "結算日 Pin 動態", "結算前 T-3d 進入結算收斂期。GEX Pin 和 Max Pain 爭奪現貨落點。兩點差距越小，Pin 效應越確定；差距>$2000時不確定性高。"),
+        ("UFT Optimizer L1-L5", "五層迭代學習", "L1:梯度下降(滾動衰減) L2:信號貢獻度分析 L3:Regime分層(POS/NEG各自最優) L4:貝葉斯更新(防過擬合) L5:收斂偵測(error<0.3σ凍結，>0.8σ解凍)。"),
+        ("Signal Direction Accuracy", "信號方向準確率", "每個信號預測方向與實際結算偏差的一致率。>60%=有效；<40%=反向有效；≈50%=無效（隨機）。"),
+        ("Rolling Decay Weight", "滾動衰減", "梯度下降計算損失時，越近期結算給越高損失權重（half-life=10條）。公式：w=exp(-0.693×age/10)。防止過度依賴遠期歷史。"),
+        ("Convergence", "收斂狀態", "收斂：均方誤差<0.3σ（絕對）或連續3次優化改善<1%（相對）→凍結權重。解凍：新樣本均誤>0.8σ（市場結構變化，重新學習）。"),
+        ("Settlement Log", "結算記錄", "每次 UFT 計算記錄預測，到期日後自動從 Deribit 拉取結算價並計算誤差。誤差<0.5σ=綠；0.5-1.0σ=黃；>1.0σ=紅。累積10筆啟動首次優化。"),
+    ]
+
+    categories = [
+        ("UFT 方程式分量", ["UFT (Unified Field Theory)", "GBM", "GEX", "BehaviorSignal", "Bayesian", "TimeDecay", "UFT Median", "UFT Mode", "σ (Sigma)", "EMH"]),
+        ("GEX 結構與 Regime", ["Gamma Flip (GF)", "POS Regime", "NEG Regime", "GEX Pin", "Max Pain", "Pin Risk", "Call Wall", "Put Wall", "PCR", "OI Concentration", "Cross-Expiry Skew"]),
+        ("期權基礎概念", ["IV (Implied Volatility)", "DVOL Index", "ATM IV", "Skew", "Gamma", "Delta"]),
+        ("行為信號", ["FR (Funding Rate)", "Perp Basis", "L/S Ratio", "OI (Open Interest)"]),
+        ("K線技術分析", ["MACD (12,26,9)", "DIF", "RSI", "EMA"]),
+        ("框架規則", ["Rule#5 v2b", "Rule#14", "Rule#15 矛盾懲罰", "Regime 分層", "Pin 博弈"]),
+        ("迭代學習系統", ["UFT Optimizer L1-L5", "Signal Direction Accuracy", "Rolling Decay Weight", "Convergence", "Settlement Log"]),
+    ]
+    term_dict = {t[0]: (t[1], t[2]) for t in glossary_terms}
+
+    glos_html = f'<div id="glossary" style="display:none;padding:0 10px 20px">'
+    glos_html += f'<div style="font-size:10px;color:var(--mut);padding:8px 0 12px">共 {len(glossary_terms)} 個術語 | 按類別排列 | 點擊展開</div>'
+    for cat_name, cat_terms in categories:
+        glos_html += f'<div style="font-size:11px;color:var(--acc);font-weight:bold;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border)">{cat_name}</div>'
+        for term in cat_terms:
+            if term not in term_dict: continue
+            cn, desc = term_dict[term]
+            glos_html += (
+                f'<details style="margin-bottom:6px;background:var(--panel);border:1px solid var(--border);border-radius:4px">'
+                f'<summary style="padding:8px 10px;cursor:pointer;list-style:none;display:flex;justify-content:space-between">'
+                f'<span><span style="color:var(--yel);font-weight:bold;font-size:11px">{term}</span>'
+                f'<span style="color:var(--mut);font-size:10px;margin-left:8px">{cn}</span></span>'
+                f'<span style="color:var(--mut);font-size:9px">&#9660;</span></summary>'
+                f'<div style="padding:8px 10px 10px;font-size:10px;line-height:1.8;color:var(--txt);border-top:1px solid var(--border)">{desc}</div>'
+                f'</details>'
+            )
+    glos_html += '</div>'
+    css += glos_html
+
+    # ── 學習狀態 Tab ─────────────────────────────────────────────
+    learn_html = '<div id="learning" style="display:none;padding:0 10px 20px">'
+    try:
+        if _os2.path.exists('data/settlement_log.json'):
+            import json as _jl2
+            with open('data/settlement_log.json') as _fl2:
+                _ll2 = _jl2.load(_fl2)
+            _cw2 = _ll2.get('current_weights', {"gbm":0.30,"gex":0.18,"behavior":0.28,"bayesian":0.12,"timedecay":0.12})
+            _rw2 = _ll2.get('regime_weights', {})
+            _cv2 = _ll2.get('convergence', {})
+            _sc2 = _ll2.get('signal_contributions', {})
+            _wh2 = _ll2.get('weight_history', [])
+            _cn2 = len([r for r in _ll2.get('records',[]) if r.get('actual_settlement')])
+            _tn2 = len(_ll2.get('records',[]))
+            _frozen2 = _cv2.get('frozen', False)
+            _conv_s = '已收斂凍結' if _frozen2 else f'學習中 ({_cn2}/10樣本)'
+            _conv_c2 = '#10b981' if _frozen2 else '#f59e0b'
+            _err_h2 = _cv2.get('avg_error_sigma_history', [])
+            learn_html += f'<div class="card" style="margin-bottom:10px"><div class="ct">學習系統狀態</div>'
+            learn_html += f'<div class="row"><span>收斂狀態</span><span style="color:{_conv_c2};font-weight:bold">{_conv_s}</span></div>'
+            learn_html += f'<div class="row"><span>已結算樣本</span><span>{_cn2} / {_tn2} 筆</span></div>'
+            learn_html += f'<div class="row"><span>優化次數</span><span>{len(_wh2)} 次</span></div>'
+            if _err_h2:
+                learn_html += f'<div class="row"><span>誤差σ趨勢</span><span style="color:var(--cyan)">{" → ".join(f"{v:.3f}" for v in _err_h2[-5:])}</span></div>'
+            learn_html += '</div>'
+            learn_html += '<div class="card" style="margin-bottom:10px"><div class="ct">全局最優權重 (L1+L4 Fusion)</div>'
+            for k2, v2 in _cw2.items():
+                bw2 = f'{min(v2*100*4,100):.0f}%'
+                learn_html += f'<div class="row"><span>{k2}</span><span style="color:var(--yel)">{v2:.4f} ({v2*100:.1f}%)</span></div>'
+                learn_html += f'<div style="background:var(--border);height:4px;border-radius:2px;margin:1px 0 4px;overflow:hidden"><div style="height:100%;width:{bw2};background:var(--yel);border-radius:2px"></div></div>'
+            learn_html += '</div>'
+            if _rw2:
+                learn_html += '<div class="card" style="margin-bottom:10px"><div class="ct">Regime 分層權重 (L3)</div>'
+                for _rn2, _rd2 in _rw2.items():
+                    _rc3 = '#10b981' if _rn2 == 'POS' else '#ef4444'
+                    learn_html += f'<div style="font-size:10px;color:{_rc3};font-weight:bold;margin:6px 0 3px">{_rn2} Regime</div>'
+                    for k3, v3 in _rd2.items():
+                        learn_html += f'<div class="row"><span style="color:var(--mut)">{k3}</span><span style="color:{_rc3}">{v3:.4f}</span></div>'
+                learn_html += '</div>'
+            if _sc2:
+                learn_html += '<div class="card" style="margin-bottom:10px"><div class="ct">信號方向準確率 (L2)</div>'
+                learn_html += '<div style="font-size:9px;color:var(--mut);margin-bottom:6px">&gt;60%=有效 | &lt;40%=反向有效 | ≈50%=無效</div>'
+                for sg2, sv2 in sorted(_sc2.items(), key=lambda x: x[1].get('direction_accuracy',0), reverse=True):
+                    ac2 = sv2.get('direction_accuracy', 0)
+                    ns2 = sv2.get('n', 0)
+                    ac2c = '#10b981' if ac2 > 0.6 else ('#ef4444' if ac2 < 0.4 else 'var(--mut)')
+                    ac2b = f'{ac2*100:.0f}%'
+                    learn_html += f'<div class="row"><span>{sg2}</span><span style="color:{ac2c}">{ac2*100:.0f}% (n={ns2})</span></div>'
+                    learn_html += f'<div style="background:var(--border);height:4px;border-radius:2px;margin:1px 0 4px;overflow:hidden"><div style="height:100%;width:{ac2b};background:{ac2c};border-radius:2px"></div></div>'
+                learn_html += '</div>'
+            if _wh2:
+                learn_html += '<div class="card"><div class="ct">最近優化記錄 (最多5次)</div>'
+                for h2 in _wh2[-5:][::-1]:
+                    _ts_h = str(h2.get('timestamp',''))[:16]
+                    _frz2 = '🔒' if h2.get('frozen') else '🔄'
+                    learn_html += (f'<div style="font-size:9px;padding:4px 0;border-bottom:1px solid var(--border)">'
+                                   f'{_frz2} {_ts_h} | n={h2.get("samples",0)} | '
+                                   f'err=${h2.get("avg_error_usd",0):,.0f} ({h2.get("avg_error_sigma",0):.3f}σ) | '
+                                   f'改善{h2.get("improvement_pct",0):+.1f}%</div>')
+                learn_html += '</div>'
+        else:
+            learn_html += '<div class="card"><div style="font-size:10px;color:var(--mut);padding:12px">尚無 settlement_log.json，首次結算後自動建立</div></div>'
+    except Exception as _le2:
+        learn_html += f'<div class="card"><div style="font-size:10px;color:var(--red);padding:12px">載入錯誤: {_le2}</div></div>'
+    learn_html += '</div>'
+    css += learn_html
+    css += '</body></html>'
     return css
-
-def send_telegram(data, uft_result, collision, snapshot_num):
-    bot_token=os.environ.get("TELEGRAM_BOT_TOKEN","")
-    chat_id=os.environ.get("TELEGRAM_CHAT_ID","")
-    if not bot_token or not chat_id: print("[INFO] Telegram not configured"); return
-    spot=float(data.get("spot",0)); fr_pct=float(data.get("fr",0))*100
-    uft_med=uft_result["uft_median"]; behavior_penalty=uft_result.get("behavior_penalty", 1.0); contradiction=uft_result["behavior_contradiction"]
-    oracle=collision.get("oracle_verdict","N/A") if collision else "N/A"
-    key_insight=collision.get("key_insight","") if collision else ""
-    macd_1d=data.get("macd_1d") or data.get("macd",{}).get("1d",{})
-    m1d_s="Bullish X" if macd_1d.get("dif",0)>macd_1d.get("dea",0) else "Bearish X"
-    r15="[WARN] Contradictory(x0.5)" if contradiction else "[OK] Consistent(full)"
-    msg=(f"[GEX Oracle S{snapshot_num}] Update\nSpot: ${spot:,.0f} | FR: {fr_pct:+.5f}%\n"
-         f"OI: {data.get("oi",0):.2f}w | DVOL: {data.get("dvol",0):.2f}%\n"
-         f"UFT: ${uft_med:,.0f} | Oracle: {oracle}\n1D MACD: {m1d_s}\nInsight: {key_insight}")
-    try:
-        requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage",
-            json={"chat_id":chat_id,"text":msg},timeout=10)
-        print("Telegram push done")
-    except Exception as e: print(f"Telegram error: {e}")
-
-def load_prev_data(db_path="data/gex_oracle.db"):
-    prev_data=None; prev_num=22
-    try:
-        import urllib.request as _ur2
-        gh_token=os.environ.get("GITHUB_TOKEN",os.environ.get("GH_PAT",""))
-        gh_repo=os.environ.get("GITHUB_REPOSITORY","Z3X1/SideProject_WhaleTracker")
-        url=f"https://api.github.com/repos/{gh_repo}/contents/data/snapshot_counter.json"
-        req2=_ur2.Request(url,headers={"Authorization":f"token {gh_token}","Accept":"application/vnd.github.v3+json"})
-        with _ur2.urlopen(req2,timeout=10) as resp:
-            import base64 as b64
-            data_raw=json.loads(resp.read())
-            counter=json.loads(b64.b64decode(data_raw["content"]).decode())
-            prev_num=int(counter.get("last_snapshot",22))
-            prev_data=counter.get("last_data")
-            print(f"Loaded: S{prev_num}")
-    except Exception as e:
-        if "404" in str(e): prev_num=23
-        print(f"counter: {e}")
-    if os.path.exists("data/snapshot_counter.json") and prev_num==22:
-        try:
-            with open("data/snapshot_counter.json") as f:
-                c=json.load(f); prev_num=int(c.get("last_snapshot",22)); prev_data=c.get("last_data")
-        except: pass
-    try:
-        conn=sqlite3.connect(db_path)
-        ddl=("CREATE TABLE IF NOT EXISTS snapshots (id INTEGER PRIMARY KEY AUTOINCREMENT,"
-             "timestamp TEXT,snapshot_num INTEGER,spot REAL,fr REAL,ls REAL,"
-             "oi REAL,dvol REAL,uft_median REAL,oracle_verdict TEXT,data_json TEXT)")
-        conn.execute(ddl); conn.commit()
-        row=conn.execute("SELECT data_json,snapshot_num FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()
-        conn.close()
-        if row and row[1]>prev_num: prev_num=row[1]; prev_data=json.loads(row[0])
-    except: pass
-    return prev_data, prev_num
-
-def save_snapshot(data, uft_result, collision, snapshot_num, db_path="data/gex_oracle.db"):
-    conn=sqlite3.connect(db_path)
-    oracle=collision.get("oracle_verdict","") if collision else ""
-    ins=("INSERT INTO snapshots (timestamp,snapshot_num,spot,fr,ls,oi,dvol,uft_median,oracle_verdict,data_json)"
-         " VALUES (?,?,?,?,?,?,?,?,?,?)")
-    conn.execute(ins,(data["timestamp"],snapshot_num,data["spot"],data["fr"],
-        data.get("ls"),data["oi"],data["dvol"],uft_result["uft_median"],oracle,json.dumps(data)))
-    conn.commit(); conn.close()
-    print(f"S{snapshot_num} Saved")
-    # 更新GitHub counter（跨runner持久化）
-    try:
-        import urllib.request as _urw, base64 as _b64w
-        gh_token=os.environ.get("GITHUB_TOKEN",os.environ.get("GH_PAT",""))
-        gh_repo=os.environ.get("GITHUB_REPOSITORY","Z3X1/SideProject_WhaleTracker")
-        url=f"https://api.github.com/repos/{gh_repo}/contents/data/snapshot_counter.json"
-        # 先GET取SHA
-        req_get=_urw.Request(url,headers={"Authorization":f"token {gh_token}","Accept":"application/vnd.github.v3+json"})
-        with _urw.urlopen(req_get,timeout=10) as rg:
-            existing=json.loads(rg.read())
-            file_sha=existing["sha"]
-        counter_data={"last_snapshot":snapshot_num,"last_data":{"uft_median":uft_result["uft_median"]}}
-        body_w=json.dumps({"message":f"counter: S{snapshot_num}","content":_b64w.b64encode(json.dumps(counter_data).encode()).decode(),"sha":file_sha}).encode()
-        req_put=_urw.Request(url,data=body_w,headers={"Authorization":f"token {gh_token}","Accept":"application/vnd.github.v3+json","Content-Type":"application/json"},method="PUT")
-        with _urw.urlopen(req_put,timeout=10): pass
-        print(f"Counter updated: S{snapshot_num}")
-    except Exception as ew: print(f"Counter update error: {ew}")
-
-def main():
-    print("="*50)
-    print("GEX Oracle 自動化引擎 v2.0")
-    print("="*50)
-
-    # 載入上次狀態
-    prev_data, prev_num = load_prev_data()
-    snapshot_num = prev_num + 1
-    print(f"Snapshot: S{snapshot_num}")
-
-    # 1. 優先讀取已抓取的市場數據(由gex_oracle_fetch.py生成)
-    market_data_path = "data/oracle_market_data.json"
-    if os.path.exists(market_data_path):
-        print(f"📂 Loading pre-fetched data: {market_data_path}")
-        with open(market_data_path) as f:
-            data = json.load(f)
-        print(f"  Spot: ${data.get('spot', 0):,.0f}")
-        print(f"  FR: {data.get('fr', 0)*100:+.5f}%")
-        print(f"  L/S: {data.get('ls') or 'N/A'}")
-        print(f"  DVOL: {data.get('dvol', 46):.2f}%")
-        # 格式標準化:將 data["macd"]["4h"] 轉為 data["macd_4h"]
-        if "macd" in data and isinstance(data["macd"], dict):
-            for tf_key, tf_new in [("15m","15m"), ("4h","4h"), ("1d","1d")]:
-                if tf_key in data["macd"]:
-                    data[f"macd_{tf_new}"] = data["macd"][tf_key]
-            for tf_key, tf_new in [("15m","15m"), ("4h","4h"), ("1d","1d")]:
-                if tf_key in data.get("ema", {}):
-                    data[f"ema_{tf_new}"] = data["ema"][tf_key]
-        # 確保spot存在
-        if not data.get("spot") or data["spot"] == 0:
-            data["spot"] = 60000
-    else:
-        print("📡 開始即時抓取數據...")
-        data = collect_all_data()
-
-    # 2. UFT計算
-    uft_result = calc_uft(data, prev_data)
-    print(f"UFT weights used: gbm={uft_result['uft_weights'].get('gbm',0):.2f} gex={uft_result['uft_weights'].get('gex',0):.2f} behavior={uft_result['uft_weights'].get('behavior',0):.2f}")
-
-    print(f"UFT Median: ${uft_result['uft_median']:,.0f}")
-
-    # 3. Claude碰撞
-    collision = call_claude_collision(data, uft_result)
-
-    # 4. 生成HTML
-    html = generate_html(data, uft_result, collision, snapshot_num)
-    output_dir = os.environ.get("OUTPUT_DIR", "docs"); os.makedirs(output_dir, exist_ok=True)
-    with open(f"{output_dir}/index.html", "w", encoding="utf-8") as f:
-        f.write(html)
-    print("✅ HTML生成Done → docs/index.html")
-
-    # 5. Telegram推送
-    send_telegram(data, uft_result, collision, snapshot_num)
-
-    # 6. 記錄預測到settlement_log(UFT動態優化)
-    try:
-        import sys
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        from uft_optimizer import record_prediction, check_and_record_settlement, optimize_weights
-        expiries_list = data.get("expiries", ["3JUL26","31JUL26","25SEP26"])
-        record_prediction(
-            snapshot_num=snapshot_num,
-            expiry=expiries_list[0] if expiries_list else "N/A",
-            predicted_median=uft_result["uft_median"],
-            predicted_mode=uft_result["uft_mode"],
-            components=uft_result.get("components", {}),
-            weights=data.get("uft_weights", {"gbm":0.30,"gex":0.18,"behavior":0.28,"bayesian":0.12,"timedecay":0.10}),
-            signals={
-                "fr": data.get("fr"),
-                "skew": uft_result.get("skew_main"),
-                "dvol": data.get("dvol"),
-                "pcr_main": uft_result.get("gex",{}).get("pcr"),
-                "macd_4h": (data.get("macd_4h") or data.get("macd",{}).get("4h",{})).get("macd"),
-                "regime_pos": 1.0 if uft_result.get("regime","POS")=="POS" else 0.0,
-                "gamma_flip": float(uft_result.get("gamma_flip", 0) or 0),
-                "contradiction": 1.0 if uft_result.get("behavior_contradiction", False) else 0.0,
-            },
-            sigma=uft_result.get("sigma", 4000)
-        )
-        # 檢查是否有到期日需要記錄結算價
-        check_and_record_settlement()
-        # 若有足夠樣本,自動優化權重
-        new_weights = optimize_weights(min_samples=10)
-        if new_weights:
-            data["uft_weights"] = new_weights
-            print(f"UFT weights: {new_weights}")
-    except Exception as e:
-        print(f"Optimizer error: {e}")
-
-    # 7. 保存狀態
-    save_snapshot(data, uft_result, collision, snapshot_num)
-
-    print(f"\n✅ S{snapshot_num} Done")
-
-if __name__ == "__main__":
-    main()
