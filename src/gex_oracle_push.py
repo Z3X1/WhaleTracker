@@ -37,7 +37,14 @@ def push_bytes(gh_path, content_bytes, message):
     return ok
 
 def wrap_password(html_str):
-    content_json = json.dumps(html_str)
+    """
+    密碼保護頁。
+    核心問題：html_str 含 </script> 標籤，直接嵌入 JS 字串會截斷外層 <script>。
+    修法：把 HTML 用 base64 編碼存入 JS，decode 後用 Blob URL + iframe 顯示。
+    這樣 HTML 內容完全不接觸 JS 解析器，任何特殊字元都安全。
+    """
+    import base64 as _b64
+    html_b64 = _b64.b64encode(html_str.encode('utf-8')).decode('ascii')
     pw_hash = PW_HASH
     page = (
         "<!DOCTYPE html>\n"
@@ -58,22 +65,31 @@ def wrap_password(html_str):
         "padding:12px 20px;border-radius:6px;font-size:16px;width:100%;"
         "text-align:center;outline:none}\n"
         "button{background:#3b82f6;color:white;border:none;padding:12px;"
-        "border-radius:6px;font-size:14px;cursor:pointer;margin-top:12px;"
-        "width:100%}\n"
+        "border-radius:6px;font-size:14px;cursor:pointer;margin-top:12px;width:100%}\n"
         ".err{color:#ef4444;margin-top:10px;font-size:12px;height:16px}\n"
+        "#frame{display:none;position:fixed;top:0;left:0;width:100%;height:100%;"
+        "border:none;background:#0a0e17}\n"
         "</style>\n"
         "</head>\n"
         "<body>\n"
-        "<div class=\"box\">\n"
+        "<div class=\"box\" id=\"box\">\n"
         "<h2>GEX ORACLE</h2>\n"
         "<input type=\"password\" id=\"pw\" placeholder=\"Password\""
         " onkeydown=\"if(event.key==='Enter')check()\">\n"
         "<button onclick=\"check()\">ENTER</button>\n"
         "<div class=\"err\" id=\"err\"></div>\n"
         "</div>\n"
+        "<iframe id=\"frame\"></iframe>\n"
         "<script>\n"
+        # HTML 以 base64 存儲：完全繞過 JS 解析器，</script> 等特殊字元不影響
         "const HASH=\"" + pw_hash + "\";\n"
-        "const DATA=" + json.dumps(html_str) + ";\n"
+        "const B64=\"" + html_b64 + "\";\n"
+        "function b64decode(s){\n"
+        "  const bin=atob(s);\n"
+        "  const bytes=new Uint8Array(bin.length);\n"
+        "  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);\n"
+        "  return new TextDecoder('utf-8').decode(bytes);\n"
+        "}\n"
         "async function sha256(s){\n"
         "  const b=new TextEncoder().encode(s);\n"
         "  const h=await crypto.subtle.digest('SHA-256',b);\n"
@@ -83,9 +99,14 @@ def wrap_password(html_str):
         "  const pw=document.getElementById('pw').value;\n"
         "  const h=await sha256(pw);\n"
         "  if(h===HASH){\n"
-        "    document.open('text/html','replace');\n"
-        "    document.write(DATA);\n"
-        "    document.close();\n"
+        # 用 Blob URL 載入 iframe，完全隔離：不用 document.write，不用 srcdoc（有長度限制）
+        "    const html=b64decode(B64);\n"
+        "    const blob=new Blob([html],{type:'text/html'});\n"
+        "    const url=URL.createObjectURL(blob);\n"
+        "    const frame=document.getElementById('frame');\n"
+        "    frame.src=url;\n"
+        "    frame.style.display='block';\n"
+        "    document.getElementById('box').style.display='none';\n"
         "  }else{\n"
         "    document.getElementById('err').textContent='Wrong password';\n"
         "    document.getElementById('pw').value='';\n"
