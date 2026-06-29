@@ -980,8 +980,11 @@ if __name__ == "__main__":
         with open(counter_path) as f:
             counter = json.load(f)
     else:
-        counter = {"count": 22}
-    snapshot_num = counter.get("count", 22) + 1
+        counter = {"last_snapshot": 22, "count": 22}
+    # 相容兩種格式：優先用 last_snapshot，fallback 用 count
+    prev_num = max(counter.get("last_snapshot", 0), counter.get("count", 0))
+    snapshot_num = prev_num + 1
+    counter["last_snapshot"] = snapshot_num
     counter["count"] = snapshot_num
     with open(counter_path, "w") as f:
         json.dump(counter, f)
