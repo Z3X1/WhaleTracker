@@ -1,4 +1,3 @@
-import json
 #!/usr/bin/env python3
 import requests, base64, os, json, hashlib
 
@@ -124,7 +123,18 @@ local = "docs/oracle/index.html"
 if os.path.exists(local):
     with open(local, "r", encoding="utf-8") as f:
         html = f.read()
-    protected = wrap_password(html)
+    # 防護：若 html 已包含 wrap（例如手動推的），不要雙重包裝
+    if "createObjectURL" in html and "const B64=" in html:
+        protected = html
+        print("HTML already wrapped, skipping wrap_password")
+    else:
+        protected = wrap_password(html)
+        # 驗證 wrap 正確
+        if "createObjectURL" not in protected or "const B64=" not in protected:
+            print("ERROR: wrap_password failed, pushing raw HTML as fallback")
+            protected = html
+        else:
+            print(f"wrap_password OK: {len(protected):,} bytes (inner: {len(html):,})")
     push_bytes(
         "docs/oracle/index.html",
         protected.encode("utf-8"),
