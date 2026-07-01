@@ -287,11 +287,11 @@
     }
   ],
   "current_weights": {
-    "gbm": 0.4,
-    "gex": 0.1,
+    "gbm": 0.3,
+    "gex": 0.18,
     "behavior": 0.28,
     "bayesian": 0.12,
-    "timedecay": 0.1
+    "timedecay": 0.12
   },
   "weight_history": [],
   "last_optimized": null,
